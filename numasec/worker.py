@@ -110,6 +110,18 @@ def _normalise_params(tool_name: str, params: dict[str, Any]) -> dict[str, Any]:
             logger.debug("Tool %s: dropping unknown params %s", tool_name, dropped)
         normalised = {k: v for k, v in normalised.items() if k in accepted}
 
+    # Coerce JSON-string values to dict where the Python function expects dict.
+    # LLMs send headers as '{"Content-Type": "application/json"}' but Python expects dict.
+    _JSON_COERCE_PARAMS = {"headers"}
+    for pname in _JSON_COERCE_PARAMS:
+        if pname in normalised and isinstance(normalised[pname], str):
+            val = normalised[pname].strip()
+            if val.startswith("{"):
+                try:
+                    normalised[pname] = json.loads(val)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
     return normalised
 
 
@@ -431,17 +443,65 @@ async def _handle_plan(params: dict) -> Any:
         return json.dumps(plan, indent=2, default=str)
 
     if action == "coverage_gaps":
+        from numasec.core.coverage import OWASP_TOOL_MAP, _OWASP_LABELS
         from numasec.mcp._singletons import get_mcp_session_store
+
         store = get_mcp_session_store()
         try:
             findings = await store.get_findings(session_id)
         except KeyError:
             return json.dumps({"error": f"Session not found: {session_id}"}, indent=2)
-        from numasec.core.coverage import OWASPCoverageTracker
-        tracker = OWASPCoverageTracker()
+
+        # Classify findings into OWASP categories via CWE mapping
+        _cwe_to_owasp = {
+            "CWE-89": "A03_injection", "CWE-79": "A03_injection",
+            "CWE-611": "A03_injection", "CWE-94": "A03_injection",
+            "CWE-78": "A03_injection", "CWE-917": "A03_injection",
+            "CWE-943": "A03_injection",
+            "CWE-352": "A01_access_control", "CWE-639": "A01_access_control",
+            "CWE-284": "A01_access_control",
+            "CWE-287": "A07_auth_failures", "CWE-798": "A07_auth_failures",
+            "CWE-521": "A07_auth_failures", "CWE-522": "A02_crypto_failures",
+            "CWE-327": "A02_crypto_failures", "CWE-328": "A02_crypto_failures",
+            "CWE-918": "A10_ssrf",
+            "CWE-16": "A05_misconfiguration", "CWE-942": "A05_misconfiguration",
+        }
+        tested: set[str] = set()
         for f in findings:
-            tracker.record(f)
-        return json.dumps(tracker.report(), indent=2, default=str)
+            cwe = getattr(f, "cwe_id", "") or ""
+            cat = _cwe_to_owasp.get(cwe)
+            if cat:
+                tested.add(cat)
+            # Also check tool_used → OWASP mapping
+            tool = getattr(f, "tool_used", "") or ""
+            for owasp_cat, tools in OWASP_TOOL_MAP.items():
+                if tool in tools:
+                    tested.add(owasp_cat)
+
+        all_cats = list(OWASP_TOOL_MAP.keys())
+        untested = [c for c in all_cats if c not in tested]
+        coverage_pct = round(len(tested) / len(all_cats) * 100, 1) if all_cats else 0.0
+
+        gap_tasks = []
+        for cat in untested:
+            tools = OWASP_TOOL_MAP.get(cat, [])
+            for t in tools:
+                if t not in ("http_request", "fetch_page"):
+                    gap_tasks.append({"tool": t, "url": target, "owasp_category": cat,
+                                      "owasp_label": _OWASP_LABELS.get(cat, cat)})
+                    break
+
+        return json.dumps({
+            "session_id": session_id, "target": target,
+            "coverage": {
+                "tested_categories": sorted(tested),
+                "untested_categories": untested,
+                "tested_count": len(tested),
+                "total_count": len(all_cats),
+                "coverage_pct": coverage_pct,
+            },
+            "gap_tasks": gap_tasks,
+        }, indent=2, default=str)
 
     if action == "next":
         plan = planner.generate_plan(target, scope=scope)
