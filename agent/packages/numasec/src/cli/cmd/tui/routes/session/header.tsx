@@ -94,21 +94,57 @@ export function Header() {
     return undefined
   })
 
-  // Derive OWASP coverage from save_finding tool results
+  // Derive OWASP coverage from save_finding, get_findings, and auto-saved scanner findings
   const owaspCategories = [
     "A01", "A02", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10",
   ] as const
   const coverageInfo = createMemo(() => {
     const covered = new Set<string>()
     const categoryRe = /A0[1-9]|A10/g
-    for (const msg of messages()) {
-      const parts = sync.data.part[msg.id] ?? []
-      for (const part of parts) {
-        if (part.type !== "tool" || part.state.status !== "completed") continue
-        if (!part.tool.includes("save_finding")) continue
-        const out = (part.state as { output?: string }).output ?? ""
-        const matches = out.match(categoryRe)
-        if (matches) matches.forEach((m) => covered.add(m))
+    const msgs = messages()
+    for (let mi = 0; mi < msgs.length; mi++) {
+      const msg = msgs[mi]
+      const parts = sync.data.part[msg.id]
+      if (!parts) continue
+      for (let pi = 0; pi < parts.length; pi++) {
+        const part = parts[pi]
+        if (part.type !== "tool") continue
+        if (part.state.status !== "completed") continue
+        const out = (part.state as { output?: string }).output
+        if (!out) continue
+
+        // Source 1: save_finding outputs (owasp_category in enriched)
+        if (part.tool.includes("save_finding")) {
+          const matches = out.match(categoryRe)
+          if (matches) matches.forEach((m) => covered.add(m))
+          continue
+        }
+
+        // Source 2: get_findings outputs (each finding may have owasp category in cwe_id or text)
+        if (part.tool.includes("get_findings")) {
+          const matches = out.match(categoryRe)
+          if (matches) matches.forEach((m) => covered.add(m))
+          continue
+        }
+
+        // Source 3: plan tool coverage_gaps output
+        if (part.tool.includes("plan")) {
+          const matches = out.match(categoryRe)
+          if (matches) matches.forEach((m) => covered.add(m))
+          continue
+        }
+
+        // Source 4: auto-saved findings in scanner outputs
+        try {
+          const data = JSON.parse(out)
+          const autoSaved = data.findings_auto_saved
+          if (!Array.isArray(autoSaved)) continue
+          for (const f of autoSaved) {
+            const cat = f.owasp_category ?? ""
+            const matches = cat.match(categoryRe)
+            if (matches) matches.forEach((m: string) => covered.add(m))
+          }
+        } catch { /* skip */ }
       }
     }
     return { covered: covered.size, total: owaspCategories.length }

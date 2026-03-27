@@ -61,26 +61,71 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
     }
   })
 
-  // Derive findings from save_finding tool results in messages
+  // Derive findings from tool results: save_finding, get_findings, auto-saved scanner outputs
   const findings = createMemo(() => {
     const counts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 }
+    type SevKey = keyof typeof counts
+    const seen = new Set<string>()
     const severityRe = /\b(critical|high|medium|low|info)\b/i
-    for (const msg of messages()) {
-      const parts = sync.data.part[msg.id] ?? []
-      for (const part of parts) {
-        if (part.type !== "tool" || part.state.status !== "completed") continue
-        if (!part.tool.includes("save_finding")) continue
-        const out = (part.state as { output?: string }).output ?? ""
+
+    const addFinding = (id: string, severity: string) => {
+      if (id && seen.has(id)) return
+      if (id) seen.add(id)
+      const sev = severity.toLowerCase() as SevKey
+      if (sev in counts) counts[sev]++
+      else counts.info++
+    }
+
+    const msgs = messages()
+    for (let mi = 0; mi < msgs.length; mi++) {
+      const msg = msgs[mi]
+      const parts = sync.data.part[msg.id]
+      if (!parts) continue
+      for (let pi = 0; pi < parts.length; pi++) {
+        const part = parts[pi]
+        if (part.type !== "tool") continue
+        if (part.state.status !== "completed") continue
+        const state = part.state as { output?: string }
+        const out = state.output
+        if (!out) continue
+
+        // Source 1: save_finding tool outputs
+        if (part.tool.includes("save_finding")) {
+          try {
+            const data = JSON.parse(out)
+            addFinding(data.finding_id ?? "", data.severity ?? data.finding?.severity ?? "")
+          } catch {
+            const m = out.match(severityRe)
+            if (m) addFinding("", m[1])
+            else addFinding("", "info")
+          }
+          continue
+        }
+
+        // Source 2: get_findings tool outputs (authoritative — reads from DB)
+        if (part.tool.includes("get_findings")) {
+          try {
+            const data = JSON.parse(out)
+            const list = data.findings
+            if (Array.isArray(list)) {
+              for (const f of list) {
+                addFinding(f.id ?? f.finding_id ?? "", f.severity ?? "")
+              }
+            }
+          } catch { /* skip */ }
+          continue
+        }
+
+        // Source 3: auto-saved findings embedded in scanner tool outputs
         try {
           const data = JSON.parse(out)
-          const sev = (data.severity ?? data.finding?.severity ?? "").toLowerCase()
-          if (sev in counts) counts[sev as keyof typeof counts]++
-          else counts.info++
-        } catch {
-          const match = out.match(severityRe)
-          if (match) counts[match[1].toLowerCase() as keyof typeof counts]++
-          else counts.info++
-        }
+          const autoSaved = data.findings_auto_saved
+          if (Array.isArray(autoSaved)) {
+            for (const f of autoSaved) {
+              addFinding(f.finding_id ?? "", f.severity ?? "")
+            }
+          }
+        } catch { /* not JSON or no auto-saved */ }
       }
     }
     return counts

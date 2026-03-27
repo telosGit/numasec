@@ -522,15 +522,121 @@ SPECIAL_METHODS = {
     "plan": _handle_plan,
 }
 
+# Scanner tools whose results may contain auto-saveable vulnerabilities.
+_SCANNER_TOOLS = {
+    "injection_test", "xss_test", "auth_test", "access_control_test",
+    "ssrf_test", "path_test",
+}
+
+# Map vuln type → (default severity, CWE ID, title template)
+_VULN_TYPE_MAP: dict[str, tuple[str, str, str]] = {
+    "sql_injection":      ("high",     "CWE-89",  "SQL Injection in '{param}'"),
+    "nosql_injection":    ("high",     "CWE-943", "NoSQL Injection in '{param}'"),
+    "ssti":               ("high",     "CWE-94",  "Server-Side Template Injection in '{param}'"),
+    "command_injection":  ("critical", "CWE-78",  "OS Command Injection in '{param}'"),
+    "reflected":          ("medium",   "CWE-79",  "Reflected XSS in '{param}'"),
+    "stored":             ("high",     "CWE-79",  "Stored XSS in '{param}'"),
+    "dom_indicator":      ("medium",   "CWE-79",  "DOM-based XSS indicator in '{param}'"),
+    "xss":                ("medium",   "CWE-79",  "Cross-Site Scripting in '{param}'"),
+    "lfi":                ("high",     "CWE-22",  "Local File Inclusion via '{param}'"),
+    "open_redirect":      ("medium",   "CWE-601", "Open Redirect via '{param}'"),
+    "host_header":        ("medium",   "CWE-644", "Host Header Injection"),
+    "xxe":                ("high",     "CWE-611", "XML External Entity Injection"),
+    "ssrf":               ("high",     "CWE-918", "Server-Side Request Forgery via '{param}'"),
+    "idor":               ("high",     "CWE-639", "Insecure Direct Object Reference in '{param}'"),
+    "csrf":               ("medium",   "CWE-352", "Cross-Site Request Forgery"),
+    "missing_token":      ("medium",   "CWE-352", "Missing CSRF Token"),
+    "cors":               ("high",     "CWE-942", "CORS Misconfiguration"),
+    "reflected_origin":   ("critical", "CWE-942", "CORS Reflected Origin"),
+    "null_origin":        ("high",     "CWE-942", "CORS Null Origin Allowed"),
+    "wildcard":           ("medium",   "CWE-942", "CORS Wildcard Origin"),
+    "jwt_none_alg":       ("critical", "CWE-287", "JWT None Algorithm Bypass"),
+    "jwt_weak_secret":    ("high",     "CWE-287", "JWT Weak Secret"),
+    "jwt_exp_missing":    ("low",      "CWE-287", "JWT Missing Expiration"),
+    "default_credentials": ("critical", "CWE-798", "Default Credentials"),
+    "password_spray":     ("high",     "CWE-521", "Weak Password (Spray)"),
+    "missing_rate_limit": ("medium",   "CWE-307", "Missing Rate Limiting"),
+    "oauth_open_redirect": ("high",    "CWE-601", "OAuth Open Redirect"),
+}
+
+
+async def _auto_save_findings(result: Any, tool_name: str) -> list[dict]:
+    """Extract vulnerabilities from scanner results and auto-persist them.
+
+    Returns list of saved finding summaries (for embedding in response).
+    """
+    if not isinstance(result, dict):
+        return []
+    vulns = result.get("vulnerabilities", [])
+    if not vulns:
+        return []
+
+    target_url = result.get("target", result.get("url", ""))
+    saved: list[dict] = []
+
+    for vuln in vulns:
+        if not isinstance(vuln, dict):
+            continue
+
+        vtype = (vuln.get("type") or "").lower()
+        param = vuln.get("param") or vuln.get("parameter") or ""
+        defaults = _VULN_TYPE_MAP.get(vtype, ("medium", "", "{type} vulnerability"))
+
+        severity = vuln.get("severity", defaults[0])
+        cwe = vuln.get("cwe", defaults[1])
+        title_tpl = defaults[2]
+        title = title_tpl.format(param=param or "endpoint", type=vtype)
+
+        params: dict[str, Any] = {
+            "session_id": _active_session_id or "",
+            "title": title,
+            "severity": severity,
+            "url": target_url,
+            "cwe_id": cwe,
+            "evidence": (vuln.get("evidence") or "")[:1000],
+            "parameter": param,
+            "payload": vuln.get("payload") or vuln.get("probe") or "",
+            "tool_used": tool_name,
+        }
+
+        try:
+            resp_json = await _handle_save_finding(params)
+            resp = json.loads(resp_json)
+            saved.append({
+                "finding_id": resp.get("finding_id", ""),
+                "title": title,
+                "severity": severity,
+                "cwe": cwe,
+                "owasp_category": resp.get("enriched", {}).get("owasp_category", ""),
+            })
+        except Exception as exc:
+            logger.warning("Auto-save failed for '%s': %s", title, exc)
+
+    return saved
+
+
+# Track active session for auto-save
+_active_session_id: str = ""
+
 
 async def dispatch(method: str, params: dict) -> Any:
     """Route a JSON-RPC call to the appropriate handler."""
+    global _active_session_id
+
     # Check special methods first
     if method in SPECIAL_METHODS:
         handler = SPECIAL_METHODS[method]
         if method == "list_tools":
             return await handler()
-        return await handler(params)
+        result = await handler(params)
+        # Track active session for auto-save
+        if method == "create_session" and isinstance(result, str):
+            try:
+                data = json.loads(result)
+                _active_session_id = data.get("session_id", "")
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return result
 
     # Otherwise dispatch to ToolRegistry with parameter normalisation
     reg = _get_registry()
@@ -538,7 +644,24 @@ async def dispatch(method: str, params: dict) -> Any:
         raise ValueError(f"Unknown tool: {method}")
 
     normalised = _normalise_params(method, params)
-    return await reg.call(method, **normalised)
+
+    # Also track session_id if passed to any tool
+    if "session_id" in normalised and normalised["session_id"]:
+        _active_session_id = normalised["session_id"]
+
+    result = await reg.call(method, **normalised)
+
+    # Auto-save findings from scanner tools
+    if method in _SCANNER_TOOLS and _active_session_id:
+        try:
+            saved = await _auto_save_findings(result, method)
+            if saved and isinstance(result, dict):
+                result["findings_auto_saved"] = saved
+                result["findings_auto_saved_count"] = len(saved)
+        except Exception as exc:
+            logger.warning("Auto-save post-hook failed for %s: %s", method, exc)
+
+    return result
 
 
 def _write_json(obj: dict) -> None:
