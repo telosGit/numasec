@@ -90,3 +90,31 @@ jobs:
         with:
           generate_release_notes: true
           files: artifacts/**/*
+
+  publish-docker:
+    name: Publish Docker Image
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+        working-directory: agent
+      - run: bun run build -- --musl-only
+        working-directory: agent/packages/numasec
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: agent/packages/numasec
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            francescosta/numasec:${{ github.ref_name }}
+            francescosta/numasec:latest

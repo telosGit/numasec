@@ -62,6 +62,7 @@ console.log(`Loaded ${migrations.length} migrations`)
 
 const singleFlag = process.argv.includes("--single")
 const baselineFlag = process.argv.includes("--baseline")
+const muslFlag = process.argv.includes("--musl-only")
 const skipInstall = process.argv.includes("--skip-install")
 const skipEmbedWebUi = process.argv.includes("--skip-embed-web-ui")
 
@@ -153,7 +154,9 @@ const allTargets: {
   },
 ]
 
-const targets = singleFlag
+const targets = muslFlag
+  ? allTargets.filter((item) => item.abi === "musl")
+  : singleFlag
   ? allTargets.filter((item) => {
       if (item.os !== process.platform || item.arch !== process.arch) {
         return false
