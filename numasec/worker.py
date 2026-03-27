@@ -20,6 +20,7 @@ Special methods (not tool calls):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import inspect
 import json
 import logging
@@ -117,10 +118,8 @@ def _normalise_params(tool_name: str, params: dict[str, Any]) -> dict[str, Any]:
         if pname in normalised and isinstance(normalised[pname], str):
             val = normalised[pname].strip()
             if val.startswith("{"):
-                try:
+                with contextlib.suppress(json.JSONDecodeError, TypeError):
                     normalised[pname] = json.loads(val)
-                except (json.JSONDecodeError, TypeError):
-                    pass
 
     return normalised
 
@@ -443,7 +442,7 @@ async def _handle_plan(params: dict) -> Any:
         return json.dumps(plan, indent=2, default=str)
 
     if action == "coverage_gaps":
-        from numasec.core.coverage import OWASP_TOOL_MAP, _OWASP_LABELS
+        from numasec.core.coverage import _OWASP_LABELS, OWASP_TOOL_MAP
         from numasec.mcp._singletons import get_mcp_session_store
 
         store = get_mcp_session_store()

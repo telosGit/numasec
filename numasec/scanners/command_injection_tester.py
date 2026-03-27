@@ -298,7 +298,7 @@ class CommandInjectionTester:
         body: dict[str, str] | None,
         baseline_text: str,
     ) -> CmdInjVulnerability | None:
-        for payload, pattern, platform, sep_type in _RESPONSE_PAYLOADS:
+        for payload, pattern, platform, _sep_type in _RESPONSE_PAYLOADS:
             resp = await self._send(client, url, param, payload, location, method, body)
             if resp is None:
                 continue

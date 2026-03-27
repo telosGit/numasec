@@ -7,8 +7,6 @@ via the ``NUMASEC_ALLOW_INTERNAL`` environment variable.
 from __future__ import annotations
 
 import ipaddress
-import os
-from urllib.parse import urlparse
 
 _INTERNAL_NETS = [
     ipaddress.ip_network("127.0.0.0/8"),

@@ -201,15 +201,10 @@ CWE_OWASP_MAP: dict[str, str] = {
     # -------------------------------------------------------------------
     # Additional mappings for expanded scanner coverage
     # -------------------------------------------------------------------
-    "CWE-434": "A04:2021 - Insecure Design",
     "CWE-1321": "A03:2021 - Injection",
     "CWE-1385": "A01:2021 - Broken Access Control",
     "CWE-444": "A05:2021 - Security Misconfiguration",
-    "CWE-942": "A05:2021 - Security Misconfiguration",
-    "CWE-614": "A02:2021 - Cryptographic Failures",
     "CWE-1022": "A05:2021 - Security Misconfiguration",
-    "CWE-693": "A07:2021 - Identification and Authentication Failures",
-    "CWE-384": "A07:2021 - Identification and Authentication Failures",
     "CWE-770": "A04:2021 - Insecure Design",
     "CWE-400": "A04:2021 - Insecure Design",
     "CWE-943": "A03:2021 - Injection",

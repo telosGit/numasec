@@ -417,7 +417,7 @@ class LfiTester:
             from numasec.scanners._encoder import PayloadEncoder
 
             extra: list[tuple[str, str, str, str]] = []
-            for p, success_re_str, plat, enc in payloads:
+            for p, success_re_str, plat, _enc in payloads:
                 double_enc = PayloadEncoder.url_double_encode(p)
                 if double_enc != p:
                     extra.append((double_enc, success_re_str, plat, "waf_double_encoded"))

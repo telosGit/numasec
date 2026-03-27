@@ -572,10 +572,7 @@ def _build_exploit_actions(target: str, vulns: list[dict[str, Any]]) -> list[dic
 
         elif vtype == "command_injection":
             platform = str(v.get("platform", "unix")).lower()
-            if "win" in platform:
-                platform = "windows"
-            else:
-                platform = "unix"
+            platform = "windows" if "win" in platform else "unix"
             templates = _CMDI_EXPLOIT.get(platform, _CMDI_EXPLOIT["unix"])
             for tmpl in templates:
                 actions.append({

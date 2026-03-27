@@ -459,7 +459,7 @@ def register(mcp: Any) -> None:
                         "result": result if isinstance(result, str) else json.dumps(result, default=str),
                         "duration_ms": round((_time.monotonic() - start) * 1000, 1),
                     }
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     return {"tool": tool, "status": "timeout", "duration_ms": 120000}
                 except Exception as exc:
                     return {

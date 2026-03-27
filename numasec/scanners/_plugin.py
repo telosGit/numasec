@@ -38,7 +38,6 @@ YAML Template Format
 from __future__ import annotations
 
 import importlib.util
-import json
 import logging
 import re
 from pathlib import Path
@@ -233,10 +232,7 @@ def load_plugins(registry: Any, plugin_dir: str | Path | None = None) -> int:
     Returns:
         Number of plugins successfully loaded.
     """
-    if plugin_dir is None:
-        plugin_dir = Path.home() / ".numasec" / "plugins"
-    else:
-        plugin_dir = Path(plugin_dir)
+    plugin_dir = Path.home() / ".numasec" / "plugins" if plugin_dir is None else Path(plugin_dir)
 
     if not plugin_dir.is_dir():
         return 0

@@ -7,6 +7,7 @@ support session-scoped browser lifecycle and safe cleanup.
 from __future__ import annotations
 
 import base64
+import contextlib
 import logging
 from typing import Any
 
@@ -51,25 +52,17 @@ class BrowserManager:
     async def close(self) -> None:
         """Tear down the browser, context, and Playwright connection."""
         if self._page and not self._page.is_closed():
-            try:
+            with contextlib.suppress(Exception):
                 await self._page.close()
-            except Exception:
-                pass
         if self._context:
-            try:
+            with contextlib.suppress(Exception):
                 await self._context.close()
-            except Exception:
-                pass
         if self._browser:
-            try:
+            with contextlib.suppress(Exception):
                 await self._browser.close()
-            except Exception:
-                pass
         if self._playwright:
-            try:
+            with contextlib.suppress(Exception):
                 await self._playwright.stop()
-            except Exception:
-                pass
         self._page = self._context = self._browser = self._playwright = None
 
     @property

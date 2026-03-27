@@ -1167,13 +1167,6 @@ CWE_DATABASE: dict[str, dict[str, str]] = {
     # -----------------------------------------------------------------------
     # Additional CWEs for expanded scanner coverage
     # -----------------------------------------------------------------------
-    "CWE-434": {
-        "id": "CWE-434",
-        "name": "Unrestricted Upload of File with Dangerous Type",
-        "description": "Software allows the attacker to upload or transfer files of dangerous types that can be automatically processed within the product's environment.",
-        "severity": "high",
-        "owasp_2021": "A04:2021 - Insecure Design",
-    },
     "CWE-1321": {
         "id": "CWE-1321",
         "name": "Improperly Controlled Modification of Object Prototype Attributes (Prototype Pollution)",
@@ -1195,40 +1188,12 @@ CWE_DATABASE: dict[str, dict[str, str]] = {
         "severity": "high",
         "owasp_2021": "A05:2021 - Security Misconfiguration",
     },
-    "CWE-942": {
-        "id": "CWE-942",
-        "name": "Permissive Cross-domain Policy with Untrusted Domains",
-        "description": "Software uses a cross-domain policy file that includes domains that should not be trusted.",
-        "severity": "medium",
-        "owasp_2021": "A05:2021 - Security Misconfiguration",
-    },
-    "CWE-614": {
-        "id": "CWE-614",
-        "name": "Sensitive Cookie in HTTPS Session Without 'Secure' Attribute",
-        "description": "A cookie containing sensitive data is sent without the Secure flag, allowing transmission over unencrypted HTTP.",
-        "severity": "medium",
-        "owasp_2021": "A02:2021 - Cryptographic Failures",
-    },
     "CWE-1022": {
         "id": "CWE-1022",
         "name": "Use of Web Link to Untrusted Target with window.opener Access (Clickjacking/Tabnabbing)",
         "description": "Web application generates links to untrusted targets without rel=noopener, allowing reverse tabnabbing.",
         "severity": "medium",
         "owasp_2021": "A05:2021 - Security Misconfiguration",
-    },
-    "CWE-693": {
-        "id": "CWE-693",
-        "name": "Protection Mechanism Failure",
-        "description": "Product does not use or incorrectly uses a protection mechanism that provides sufficient defense.",
-        "severity": "high",
-        "owasp_2021": "A07:2021 - Identification and Authentication Failures",
-    },
-    "CWE-384": {
-        "id": "CWE-384",
-        "name": "Session Fixation",
-        "description": "Authenticating a user without invalidating any existing session identifier allows an attacker to steal authenticated sessions.",
-        "severity": "high",
-        "owasp_2021": "A07:2021 - Identification and Authentication Failures",
     },
     "CWE-770": {
         "id": "CWE-770",

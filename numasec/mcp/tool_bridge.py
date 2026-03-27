@@ -14,6 +14,7 @@ Why registry.call() instead of calling func directly:
 
 from __future__ import annotations
 
+import contextlib
 import inspect
 import json
 import logging
@@ -119,10 +120,8 @@ def _register_one(
                 kwargs = kwargs["kwargs"]
             elif "kwargs" in kwargs and isinstance(kwargs["kwargs"], str) and len(kwargs) == 1:
                 # Handle kwargs passed as a JSON string (common LLM mistake).
-                try:
+                with contextlib.suppress(json.JSONDecodeError, TypeError):
                     kwargs = json.loads(kwargs["kwargs"])
-                except (json.JSONDecodeError, TypeError):
-                    pass
 
             # Filter out parameters not accepted by the target function to
             # prevent TypeError on unexpected keyword arguments.
@@ -135,10 +134,7 @@ def _register_one(
             result = await registry.call(captured_name, **kwargs)
 
             # MCP expects string responses.
-            if isinstance(result, dict | list):
-                output = json.dumps(result, indent=2, default=str)
-            else:
-                output = str(result)
+            output = json.dumps(result, indent=2, default=str) if isinstance(result, dict | list) else str(result)
 
             # Safety net: truncate oversized output to avoid MCP protocol errors.
             if len(output) > 32_000:

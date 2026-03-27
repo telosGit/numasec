@@ -231,11 +231,7 @@ CWE_VECTOR_MAP: dict[str, CVSSv31Vector] = {
     "CWE-1321": CVSSv31Vector(AV="N", AC="L", PR="N", UI="N", S="U", C="L", I="H", A="N"),  # Prototype pollution
     "CWE-1385": CVSSv31Vector(AV="N", AC="L", PR="N", UI="R", S="U", C="H", I="H", A="N"),  # WebSocket hijacking
     "CWE-444": CVSSv31Vector(AV="N", AC="H", PR="N", UI="N", S="C", C="H", I="H", A="N"),   # HTTP smuggling
-    "CWE-942": CVSSv31Vector(AV="N", AC="L", PR="N", UI="R", S="U", C="L", I="L", A="N"),   # CORS misconfig
-    "CWE-614": CVSSv31Vector(AV="N", AC="H", PR="N", UI="R", S="U", C="H", I="N", A="N"),   # Insecure cookie
     "CWE-1022": CVSSv31Vector(AV="N", AC="L", PR="N", UI="R", S="U", C="N", I="L", A="N"),  # Tabnabbing
-    "CWE-693": CVSSv31Vector(AV="N", AC="L", PR="N", UI="N", S="U", C="L", I="L", A="N"),   # Protection failure
-    "CWE-384": CVSSv31Vector(AV="N", AC="L", PR="N", UI="R", S="U", C="H", I="H", A="N"),   # Session fixation
     "CWE-770": CVSSv31Vector(AV="N", AC="L", PR="N", UI="N", S="U", C="N", I="N", A="H"),   # Resource exhaustion
     "CWE-400": CVSSv31Vector(AV="N", AC="L", PR="N", UI="N", S="U", C="N", I="N", A="H"),   # Resource consumption
     "CWE-943": CVSSv31Vector(AV="N", AC="L", PR="N", UI="N", S="U", C="H", I="H", A="N"),   # NoSQL injection

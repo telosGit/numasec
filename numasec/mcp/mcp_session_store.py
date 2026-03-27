@@ -162,7 +162,6 @@ class McpSessionStore:
             event_type: Event type string (e.g., "credential_relay").
             data:       Event payload dict.
         """
-        from dataclasses import dataclass, field as dc_field
         from datetime import UTC, datetime
         from types import SimpleNamespace
 

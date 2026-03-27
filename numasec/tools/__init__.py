@@ -7,9 +7,9 @@ This reduces tool count from 50 to 20, improving LLM reasoning quality.
 import logging
 import shutil
 
-logger = logging.getLogger(__name__)
-
 from numasec.tools._base import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["ToolRegistry", "create_default_tool_registry"]
 
