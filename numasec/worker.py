@@ -536,6 +536,26 @@ async def _handle_plan(params: dict) -> Any:
     return json.dumps({"error": f"Unknown plan action: {action}"}, indent=2)
 
 
+async def _handle_ping(params: dict) -> Any:
+    """Health check — returns worker status."""
+    import os
+
+    mem = 0
+    try:
+        import psutil
+
+        proc = psutil.Process(os.getpid())
+        mem = proc.memory_info().rss // 1024 // 1024  # MB
+    except ImportError:
+        pass
+    return json.dumps({
+        "status": "ok",
+        "pid": os.getpid(),
+        "memory_mb": mem,
+        "active_session": _active_session_id or None,
+    })
+
+
 async def _handle_build_chains(params: dict) -> Any:
     """Auto-detect and assign attack chains across session findings."""
     from numasec.mcp._singletons import get_mcp_session_store
@@ -572,6 +592,7 @@ SPECIAL_METHODS: dict[str, Callable[..., Coroutine[Any, Any, Any]]] = {
     "kb_search": _handle_kb_search,
     "plan": _handle_plan,
     "build_chains": _handle_build_chains,
+    "ping": _handle_ping,
 }
 
 # Scanner tools whose results may contain auto-saveable vulnerabilities.
