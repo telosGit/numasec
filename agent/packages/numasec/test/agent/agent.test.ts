@@ -122,6 +122,137 @@ test("compaction agent denies all permissions", async () => {
   })
 })
 
+// ── 5-Agent Architecture Tests ──────────────────────────────────────
+
+test("has exactly 5 primary agents", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const agents = await Agent.list()
+      const primary = agents.filter((a) => a.mode !== "subagent" && !a.hidden)
+      expect(primary.length).toBe(5)
+      expect(primary.map((a) => a.name).sort()).toEqual(["hunt", "pentest", "recon", "report", "review"])
+    },
+  })
+})
+
+test("all primary agents have dedicated prompts", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const agents = await Agent.list()
+      const primary = agents.filter((a) => a.mode !== "subagent" && !a.hidden)
+      for (const agent of primary) {
+        expect(agent.prompt).toBeTruthy()
+        expect(agent.prompt!.length).toBeGreaterThan(100)
+      }
+    },
+  })
+})
+
+test("all primary agents have colors", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const agents = await Agent.list()
+      const primary = agents.filter((a) => a.mode !== "subagent" && !a.hidden)
+      for (const agent of primary) {
+        expect(agent.color).toBeTruthy()
+      }
+    },
+  })
+})
+
+test("hunt agent has correct properties and permissions", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const hunt = await Agent.get("hunt")
+      expect(hunt).toBeDefined()
+      expect(hunt?.mode).toBe("primary")
+      expect(hunt?.native).toBe(true)
+      expect(hunt?.color).toBe("error")
+      // bash is ask by default, specific tools allowed
+      expect(evalPerm(hunt, "bash")).toBe("ask")
+      expect(Permission.evaluate("bash", "nmap -sV target", hunt!.permission).action).toBe("allow")
+      expect(Permission.evaluate("bash", "nuclei -u target", hunt!.permission).action).toBe("allow")
+    },
+  })
+})
+
+test("review agent denies scanner tools and bash", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const review = await Agent.get("review")
+      expect(review).toBeDefined()
+      expect(review?.mode).toBe("primary")
+      expect(review?.native).toBe(true)
+      expect(review?.color).toBe("warning")
+      // bash denied by default
+      expect(evalPerm(review, "bash")).toBe("deny")
+      // scanner tools denied
+      expect(evalPerm(review, "injection_test")).toBe("deny")
+      expect(evalPerm(review, "xss_test")).toBe("deny")
+      expect(evalPerm(review, "ssrf_test")).toBe("deny")
+      expect(evalPerm(review, "auth_test")).toBe("deny")
+      expect(evalPerm(review, "access_control_test")).toBe("deny")
+      expect(evalPerm(review, "path_test")).toBe("deny")
+      // read tools allowed
+      expect(evalPerm(review, "read")).toBe("allow")
+      expect(evalPerm(review, "glob")).toBe("allow")
+      expect(evalPerm(review, "grep")).toBe("allow")
+    },
+  })
+})
+
+test("report agent denies bash and scanner tools", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const report = await Agent.get("report")
+      expect(report).toBeDefined()
+      expect(report?.mode).toBe("primary")
+      expect(report?.native).toBe(true)
+      expect(report?.color).toBe("success")
+      // bash denied
+      expect(evalPerm(report, "bash")).toBe("deny")
+      // scanner tools denied
+      expect(evalPerm(report, "injection_test")).toBe("deny")
+      expect(evalPerm(report, "xss_test")).toBe("deny")
+      // read and report tools allowed
+      expect(evalPerm(report, "read")).toBe("allow")
+      expect(evalPerm(report, "get_findings")).toBe("allow")
+      expect(evalPerm(report, "generate_report")).toBe("allow")
+    },
+  })
+})
+
+test("scanner and analyst subagents have dedicated prompts", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const scanner = await Agent.get("scanner")
+      const analyst = await Agent.get("analyst")
+      expect(scanner).toBeDefined()
+      expect(analyst).toBeDefined()
+      expect(scanner?.mode).toBe("subagent")
+      expect(analyst?.mode).toBe("subagent")
+      expect(scanner?.prompt).toBeTruthy()
+      expect(analyst?.prompt).toBeTruthy()
+      expect(scanner?.prompt!.length).toBeGreaterThan(100)
+      expect(analyst?.prompt!.length).toBeGreaterThan(100)
+    },
+  })
+})
+
 test("custom agent from config creates new agent", async () => {
   await using tmp = await tmpdir({
     config: {

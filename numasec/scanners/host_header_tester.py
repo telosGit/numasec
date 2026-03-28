@@ -22,6 +22,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.host_header_tester")
 
 # Injected host values to test
@@ -125,10 +127,9 @@ class HostHeaderTester:
             (f"{real_host}.{_EVIL_HOST}", "suffix_evil"),
         ]
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=False,  # Do NOT follow: check Location header
-            verify=False,
+            follow_redirects=False,
         ) as client:
             for evil_value, _label in test_cases:
                 # Test each forwarding header separately

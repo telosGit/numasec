@@ -32,6 +32,8 @@ from typing import Any
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.xxe_tester")
 
 # ---------------------------------------------------------------------------
@@ -189,10 +191,8 @@ class XxeTester:
         start = time.monotonic()
         result = XxeResult(target=url)
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
             headers=headers or {},
         ) as client:
             # Preliminary GET: detect XML content type or XML-like response

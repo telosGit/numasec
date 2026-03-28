@@ -22,6 +22,8 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.xss_tester")
 
 # ---------------------------------------------------------------------------
@@ -186,10 +188,8 @@ class PythonXSSTester:
         test_params = self._detect_params(url, params, method, body)
         result.params_tested = len(test_params)
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
             headers=self._extra_headers,
         ) as client:
             # Phase 1+2: Reflected XSS testing per parameter

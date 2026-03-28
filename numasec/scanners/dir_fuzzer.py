@@ -15,6 +15,8 @@ from typing import Any
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.dir_fuzzer")
 
 # ---------------------------------------------------------------------------
@@ -318,10 +320,9 @@ class PythonDirFuzzer:
         # Normalise base URL
         base = url.rstrip("/")
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
             follow_redirects=False,
-            verify=False,
             headers={"User-Agent": "Mozilla/5.0 (compatible; numasec/1.0)"},
         ) as client:
             # Get baseline 404 fingerprint

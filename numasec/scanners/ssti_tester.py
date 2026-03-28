@@ -27,6 +27,8 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.ssti_tester")
 
 # ---------------------------------------------------------------------------
@@ -159,10 +161,8 @@ class SstiTester:
         test_params = self._detect_params(url, params, body)
         result.params_tested = len(test_params)
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
             headers=self._extra_headers,
         ) as client:
             for param_name, location in test_params:

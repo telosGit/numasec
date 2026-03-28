@@ -16,6 +16,8 @@ from urllib.parse import urljoin
 import httpx
 import yaml
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger(__name__)
 
 # Common fallback paths when a URL returns HTML (Swagger UI) instead of a spec.
@@ -117,10 +119,8 @@ class OpenAPIParser:
         Returns:
             Parsed ``OpenAPISpec``.
         """
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=timeout,
-            follow_redirects=True,
-            verify=False,
             headers={"User-Agent": "Mozilla/5.0 (compatible; numasec/1.0)"},
         ) as client:
             spec_data = await self._fetch_spec(client, url)

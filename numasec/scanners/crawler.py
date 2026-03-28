@@ -22,6 +22,8 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup, Comment
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.crawler")
 
 
@@ -278,10 +280,8 @@ class PythonWebCrawler:
         all_js: set[str] = set()
         all_emails: set[str] = set()
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
             headers={"User-Agent": "Mozilla/5.0 (compatible; numasec/1.0)"},
         ) as client:
             while queue and result.pages_crawled < self.max_pages:
@@ -478,10 +478,8 @@ class PythonTechFingerprinter:
         result = FingerprintResult(target=url)
 
         try:
-            async with httpx.AsyncClient(
+            async with create_client(
                 timeout=self.timeout,
-                follow_redirects=True,
-                verify=False,
                 headers={"User-Agent": "Mozilla/5.0 (compatible; numasec/1.0)"},
             ) as client:
                 resp = await client.get(url)

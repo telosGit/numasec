@@ -500,6 +500,8 @@ class CVEEnricher:
 
         import httpx
 
+        from numasec.core.http import create_client
+
         vendor_product = _CPE_VENDOR_MAP.get(service)
         if vendor_product:
             vendor, product = vendor_product
@@ -518,7 +520,7 @@ class CVEEnricher:
 
         for attempt in range(_NVD_MAX_RETRIES):
             try:
-                async with httpx.AsyncClient(timeout=_NVD_TIMEOUT, verify=True) as client:
+                async with create_client(timeout=_NVD_TIMEOUT, verify=True) as client:
                     resp = await client.get(_NVD_API_URL, params=params, headers=headers)
 
                 if resp.status_code == 429:

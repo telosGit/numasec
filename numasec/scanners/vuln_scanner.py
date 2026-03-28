@@ -28,6 +28,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import httpx
 
+from numasec.core.http import create_client
 from numasec.knowledge.loader import KnowledgeLoader
 
 logger = logging.getLogger("numasec.scanners.vuln_scanner")
@@ -246,10 +247,8 @@ class PythonVulnScanner:
 
         all_checks = checks or ["headers", "technologies", "response_match"]
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
         ) as client:
             # Run checks sequentially to be kind to the target
             if "headers" in all_checks:

@@ -26,6 +26,8 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.js_analyzer")
 
 # ---------------------------------------------------------------------------
@@ -196,10 +198,8 @@ class JSAnalyzer:
         start = time.monotonic()
         result = JSAnalysisResult(target=url)
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
             headers=headers or {},
         ) as client:
             # Step 1: Discover JS files if not provided

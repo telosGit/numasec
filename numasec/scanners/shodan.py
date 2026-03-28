@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 
-import httpx
+import httpx  # noqa: F401 — tests mock this module attribute
 
+from numasec.core.http import create_client
 from numasec.scanners._base import PortInfo, ScanEngine, ScanResult, ScanType
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ class ShodanPassiveScanner(ScanEngine):
         if not self._api_key:
             raise ShodanError("Shodan API key required — set SHODAN_API_KEY")
 
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with create_client(timeout=timeout) as client:
             resp = await client.get(
                 f"{SHODAN_API_BASE}/shodan/host/{target}",
                 params={"key": self._api_key, "minify": "false"},

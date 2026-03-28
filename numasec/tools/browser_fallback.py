@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.tools.browser_fallback")
 
 
@@ -21,10 +23,8 @@ async def fetch_page(url: str, timeout: float = 30.0) -> dict[str, Any]:
     start = time.monotonic()
 
     try:
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=timeout,
-            follow_redirects=True,
-            verify=False,
             headers={"User-Agent": "Mozilla/5.0 (compatible; numasec/1.0)"},
         ) as client:
             resp = await client.get(url)

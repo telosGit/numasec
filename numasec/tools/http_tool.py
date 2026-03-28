@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.tools.http")
 
 
@@ -33,10 +35,9 @@ async def http_request(
     start = time.monotonic()
 
     try:
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=timeout,
             follow_redirects=follow_redirects,
-            verify=False,
         ) as client:
             resp = await client.request(
                 method,

@@ -31,6 +31,8 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.auth_tester")
 
 # ---------------------------------------------------------------------------
@@ -428,10 +430,8 @@ class AuthTester:
         active_checks = {c.strip().lower() for c in checks.split(",") if c.strip()}
         hdrs = parsed_headers or {}
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
         ) as client:
             # Step 1: Fetch the page to collect tokens and scan for static issues
             response = await self._fetch_response(client, url)
@@ -919,10 +919,8 @@ class AuthTester:
         base_origin = f"{parsed.scheme}://{parsed.netloc}"
         findings: list[dict[str, Any]] = []
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
         ) as client:
             # --- Phase 1: Discover live login endpoints ---
             live_endpoints: list[str] = []

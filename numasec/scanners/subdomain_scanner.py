@@ -18,6 +18,8 @@ from typing import Any
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.subdomain_scanner")
 
 # ---------------------------------------------------------------------------
@@ -578,7 +580,7 @@ class PythonSubdomainScanner:
         ct_url = f"https://crt.sh/?q=%25.{domain}&output=json"
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with create_client(timeout=30.0) as client:
                 resp = await client.get(ct_url)
                 if resp.status_code != 200:
                     logger.warning("crt.sh returned %d for %s", resp.status_code, domain)

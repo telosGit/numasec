@@ -29,6 +29,8 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.open_redirect_tester")
 
 # ---------------------------------------------------------------------------
@@ -205,11 +207,9 @@ class OpenRedirectTester:
         parsed = urlparse(url)
         params = parse_qs(parsed.query, keep_blank_values=True)
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
             max_redirects=5,
-            verify=False,
             headers=headers or {},
         ) as client:
             # Strategy 1: replace existing parameter values

@@ -21,6 +21,8 @@ from typing import Any
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.graphql_tester")
 
 _INTROSPECTION_QUERY = """{
@@ -167,10 +169,8 @@ class GraphQLTester:
         result = GraphQLResult(target=url)
         hdrs = {**(parsed_headers or {}), "Content-Type": "application/json"}
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
         ) as client:
             # Step 1: Discover GraphQL endpoint
             endpoint = await self._discover_endpoint(client, url)

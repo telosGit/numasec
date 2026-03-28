@@ -28,6 +28,8 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.command_injection_tester")
 
 # ---------------------------------------------------------------------------
@@ -192,10 +194,8 @@ class CommandInjectionTester:
         ordered = cmd_params + other_params
         result.params_tested = len(ordered)
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
             headers=self._extra_headers,
         ) as client:
             for param_name, location in ordered:

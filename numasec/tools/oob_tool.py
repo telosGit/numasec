@@ -34,6 +34,8 @@ from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.tools.oob_tool")
 
 # Default public interactsh servers (ProjectDiscovery)
@@ -185,7 +187,7 @@ class OOBClient:
 
         for server in servers:
             try:
-                async with httpx.AsyncClient(timeout=self.timeout, verify=False) as client:
+                async with create_client(timeout=self.timeout) as client:
                     resp = await client.post(
                         f"https://{server}/register",
                         json=payload,
@@ -219,7 +221,7 @@ class OOBClient:
             List of ``Interaction`` objects (may be empty if no callbacks yet).
         """
         try:
-            async with httpx.AsyncClient(timeout=self.timeout, verify=False) as client:
+            async with create_client(timeout=self.timeout) as client:
                 resp = await client.get(
                     f"https://{session.server}/poll",
                     params={
@@ -323,7 +325,7 @@ class OOBClient:
             True if deregistration succeeded.
         """
         try:
-            async with httpx.AsyncClient(timeout=self.timeout, verify=False) as client:
+            async with create_client(timeout=self.timeout) as client:
                 resp = await client.post(
                     f"https://{session.server}/deregister",
                     json={

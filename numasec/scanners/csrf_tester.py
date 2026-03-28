@@ -27,6 +27,8 @@ from typing import Any
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.csrf_tester")
 
 # ---------------------------------------------------------------------------
@@ -141,10 +143,8 @@ class CsrfTester:
         start = time.monotonic()
         result = CsrfResult(target=url)
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
         ) as client:
             try:
                 # Check 1 & 2: GET-based checks (SameSite + token)

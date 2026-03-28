@@ -23,6 +23,8 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import httpx
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners.ssrf_tester")
 
 # ---------------------------------------------------------------------------
@@ -209,10 +211,8 @@ class SsrfTester:
 
         confirmed_params: set[str] = set()  # params already confirmed vulnerable
 
-        async with httpx.AsyncClient(
+        async with create_client(
             timeout=self.timeout,
-            follow_redirects=True,
-            verify=False,
             headers=headers or {},
         ) as client:
             # Strategy 1: test existing query parameters

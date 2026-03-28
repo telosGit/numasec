@@ -46,6 +46,8 @@ from typing import Any, Protocol, runtime_checkable
 import httpx
 import yaml
 
+from numasec.core.http import create_client
+
 logger = logging.getLogger("numasec.scanners._plugin")
 
 
@@ -74,7 +76,7 @@ class YAMLScanner:
         url = base_url.rstrip("/") + self.request_path
         findings: list[dict[str, Any]] = []
 
-        async with httpx.AsyncClient(timeout=timeout, verify=False, follow_redirects=True) as client:
+        async with create_client(timeout=timeout) as client:
             try:
                 if self.request_method.upper() == "GET":
                     resp = await client.get(url)
