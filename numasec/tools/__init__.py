@@ -439,7 +439,82 @@ def create_default_tool_registry() -> ToolRegistry:
     )
 
     # ------------------------------------------------------------------
-    # 12. browser — unified navigate/click/fill/screenshot
+    # 11b. upload_test — file upload vulnerability testing
+    # ------------------------------------------------------------------
+    from numasec.scanners.upload_tester import python_upload_test
+
+    registry.register(
+        "upload_test",
+        python_upload_test,
+        {
+            "name": "upload_test",
+            "description": (
+                "Test for file upload vulnerabilities: unrestricted type, MIME bypass, "
+                "double extension, null byte injection, SVG XSS, polyglot files, and "
+                "Content-Type mismatch. Auto-discovers file upload forms."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "Target URL (page with upload form or direct endpoint)"},
+                    "field_name": {
+                        "type": "string",
+                        "description": "Explicit file field name. Auto-detected from HTML if omitted",
+                    },
+                    "headers": {"type": "string", "description": "JSON string of HTTP headers for auth testing"},
+                },
+                "required": ["url"],
+            },
+        },
+    )
+
+    # ------------------------------------------------------------------
+    # 12. race_test — race condition (TOCTOU) detection
+    # ------------------------------------------------------------------
+    from numasec.scanners.race_tester import python_race_test
+
+    registry.register(
+        "race_test",
+        python_race_test,
+        {
+            "name": "race_test",
+            "description": (
+                "Test for race condition (TOCTOU) vulnerabilities by sending concurrent "
+                "identical requests. Detects limit bypass, state inconsistency, and "
+                "duplicate action issues."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "Target endpoint URL to test"},
+                    "method": {
+                        "type": "string",
+                        "enum": ["GET", "POST"],
+                        "default": "POST",
+                        "description": "HTTP method",
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "JSON-encoded request body for POST requests",
+                        "default": "",
+                    },
+                    "concurrency": {
+                        "type": "integer",
+                        "description": "Number of simultaneous requests (default 20)",
+                        "default": 20,
+                    },
+                    "headers": {
+                        "type": "string",
+                        "description": "JSON string of extra HTTP headers",
+                    },
+                },
+                "required": ["url"],
+            },
+        },
+    )
+
+    # ------------------------------------------------------------------
+    # 13. browser — unified navigate/click/fill/screenshot
     # ------------------------------------------------------------------
     from numasec.tools.composite_browser import browser
 
@@ -475,7 +550,7 @@ def create_default_tool_registry() -> ToolRegistry:
     )
 
     # ------------------------------------------------------------------
-    # 13. oob — Out-of-Band setup/poll
+    # 14. oob — Out-of-Band setup/poll
     # ------------------------------------------------------------------
     from numasec.tools.composite_oob import oob
 
@@ -506,7 +581,7 @@ def create_default_tool_registry() -> ToolRegistry:
     )
 
     # ------------------------------------------------------------------
-    # 14. run_command (internal, excluded from MCP by default)
+    # 15. run_command (internal, excluded from MCP by default)
     # ------------------------------------------------------------------
     registry.register(
         "run_command",
@@ -521,6 +596,35 @@ def create_default_tool_registry() -> ToolRegistry:
                     "timeout": {"type": "integer", "default": 300},
                 },
                 "required": ["command"],
+            },
+        },
+    )
+
+    # ------------------------------------------------------------------
+    # 16. smuggling_test — HTTP request smuggling (standalone)
+    # ------------------------------------------------------------------
+    from numasec.scanners.smuggling_tester import python_smuggling_test
+
+    registry.register(
+        "smuggling_test",
+        python_smuggling_test,
+        {
+            "name": "smuggling_test",
+            "description": (
+                "Test for HTTP request smuggling vulnerabilities (CL.TE, TE.CL, TE.TE). "
+                "Uses safe timing-based detection to identify header processing "
+                "disagreements between front-end and back-end servers."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "Target URL to test"},
+                    "headers": {
+                        "type": "string",
+                        "description": "JSON string of HTTP headers for authenticated testing",
+                    },
+                },
+                "required": ["url"],
             },
         },
     )
