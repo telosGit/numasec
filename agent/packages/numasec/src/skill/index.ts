@@ -20,7 +20,7 @@ import { Discovery } from "./discovery"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
-  const EXTERNAL_DIRS = [".claude", ".agents"]
+  const EXTERNAL_DIRS = [".numasec", ".agents"]
   const EXTERNAL_SKILL_PATTERN = "skills/**/SKILL.md"
   const NUMASEC_SKILL_PATTERN = "{skill,skills}/**/SKILL.md"
   const SKILL_PATTERN = "**/SKILL.md"
