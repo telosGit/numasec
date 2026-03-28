@@ -1,0 +1,74 @@
+name: numasec Security Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target URL to scan'
+        required: true
+        type: string
+      output_format:
+        description: 'Output format (sarif, json, markdown)'
+        required: false
+        default: 'sarif'
+        type: choice
+        options:
+          - sarif
+          - json
+          - markdown
+      severity_threshold:
+        description: 'Fail threshold (critical, high, medium, low, info)'
+        required: false
+        default: 'high'
+        type: choice
+        options:
+          - critical
+          - high
+          - medium
+          - low
+          - info
+      timeout:
+        description: 'Maximum scan duration in seconds'
+        required: false
+        default: '300'
+        type: string
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install numasec
+        run: pip install numasec
+
+      - name: Run numasec scan
+        run: |
+          python -m numasec.cli.ci_mode \
+            --target "${{ inputs.target }}" \
+            --output "${{ inputs.output_format }}" \
+            --severity-threshold "${{ inputs.severity_threshold }}" \
+            --timeout "${{ inputs.timeout }}" \
+            > results.${{ inputs.output_format == 'markdown' && 'md' || inputs.output_format }}
+        continue-on-error: true
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: inputs.output_format == 'sarif'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+
+      - name: Upload scan results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: numasec-scan-results
+          path: results.*
+          retention-days: 30
