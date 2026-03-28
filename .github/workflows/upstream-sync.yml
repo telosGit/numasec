@@ -45,11 +45,11 @@ jobs:
               packages/numasec/src/provider/*|packages/numasec/src/auth/*|packages/numasec/src/effect/*|packages/numasec/src/id/*|packages/numasec/src/format/*|packages/numasec/src/bus/*|packages/numasec/src/env/*|packages/ui/*|packages/plugin/*)
                 SAFE_FILES="${SAFE_FILES}${file}\n"
                 ;;
+              packages/numasec/src/tool/*|packages/numasec/src/agent/*|packages/numasec/src/session/prompt/*|packages/numasec/src/command/*|packages/numasec/src/bridge/*|packages/numasec/src/lsp/*|packages/numasec/src/ide/*|packages/numasec/src/worktree/*)
+                DIVERGED_FILES="${DIVERGED_FILES}${file}\n"
+                ;;
               packages/numasec/src/session/*|packages/numasec/src/config/*|packages/numasec/src/storage/*|packages/numasec/src/mcp/*|packages/numasec/src/server/*|packages/numasec/src/permission/*|packages/numasec/src/skill/*)
                 REVIEW_FILES="${REVIEW_FILES}${file}\n"
-                ;;
-              packages/numasec/src/tool/*|packages/numasec/src/agent/*|packages/numasec/src/command/*|packages/numasec/src/bridge/*|packages/numasec/src/lsp/*|packages/numasec/src/ide/*|packages/numasec/src/worktree/*)
-                DIVERGED_FILES="${DIVERGED_FILES}${file}\n"
                 ;;
               *)
                 OTHER_FILES="${OTHER_FILES}${file}\n"

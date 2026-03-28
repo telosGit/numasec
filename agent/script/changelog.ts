@@ -116,8 +116,7 @@ function filterRevertedCommits(commits: Commit[]): Commit[] {
 const sections = {
   core: "Core",
   tui: "TUI",
-  app: "Desktop",
-  tauri: "Desktop",
+  app: "App",
   sdk: "SDK",
   plugin: "SDK",
   "extensions/zed": "Extensions",
@@ -127,7 +126,7 @@ const sections = {
 
 function getSection(areas: Set<string>): string {
   // Priority order for multi-area commits
-  const priority = ["core", "tui", "app", "tauri", "sdk", "plugin", "extensions/zed", "extensions/vscode", "github"]
+  const priority = ["core", "tui", "app", "sdk", "plugin", "extensions/zed", "extensions/vscode", "github"]
   for (const area of priority) {
     if (areas.has(area)) return sections[area as keyof typeof sections]
   }

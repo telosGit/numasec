@@ -133,7 +133,7 @@ export const dict = {
   "provider.connect.apiKey.placeholder": "API ključ",
   "provider.connect.apiKey.required": "API ključ je obavezan",
   "provider.connect.numasecZen.line1":
-    "Numasec Zen ti daje pristup kuriranom skupu pouzdanih, optimizovanih modela za coding agente.",
+    "Numasec Zen ti daje pristup kuriranom skupu pouzdanih, optimizovanih modela za sigurnosne agente.",
   "provider.connect.numasecZen.line2":
     "Sa jednim API ključem dobijaš pristup modelima kao što su Claude, GPT, Gemini, GLM i drugi.",
   "provider.connect.numasecZen.visit.prefix": "Posjeti ",

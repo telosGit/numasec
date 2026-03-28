@@ -59,7 +59,7 @@ const keepSandbox = process.env.NUMASEC_E2E_KEEP_SANDBOX === "1"
 
 const serverEnv = {
   ...process.env,
-  NUMASEC_DISABLE_SHARE: process.env.NUMASEC_DISABLE_SHARE ?? "true",
+  NUMASEC_ENABLE_SHARE: process.env.NUMASEC_ENABLE_SHARE ?? "",
   NUMASEC_DISABLE_LSP_DOWNLOAD: "true",
   NUMASEC_DISABLE_DEFAULT_PLUGINS: "true",
   NUMASEC_EXPERIMENTAL_DISABLE_FILEWATCHER: "true",

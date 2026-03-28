@@ -135,7 +135,7 @@ export const dict = {
   "provider.connect.apiKey.placeholder": "API key",
   "provider.connect.apiKey.required": "API key is required",
   "provider.connect.numasecZen.line1":
-    "Numasec Zen gives you access to a curated set of reliable optimized models for coding agents.",
+    "Numasec Zen gives you access to a curated set of reliable optimized models for security agents.",
   "provider.connect.numasecZen.line2":
     "With a single API key you'll get access to models such as Claude, GPT, Gemini, GLM and more.",
   "provider.connect.numasecZen.visit.prefix": "Visit ",
@@ -678,7 +678,7 @@ export const dict = {
   "sidebar.project.viewAllSessions": "View all sessions",
   "sidebar.project.clearNotifications": "Clear notifications",
   "sidebar.empty.title": "No projects open",
-  "sidebar.empty.description": "Open a project to get started",
+  "sidebar.empty.description": "Set a target to get started",
 
   "debugBar.ariaLabel": "Development performance diagnostics",
   "debugBar.na": "n/a",
