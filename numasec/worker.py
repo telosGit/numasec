@@ -199,6 +199,7 @@ async def _handle_save_finding(params: dict) -> Any:
         tool_used=params.get("tool_used", ""),
         related_finding_ids=related_ids,
         chain_id=params.get("chain_id", ""),
+        confidence=float(params.get("confidence", 0.5)),
     )
 
     from numasec.standards import enrich_finding
@@ -535,6 +536,31 @@ async def _handle_plan(params: dict) -> Any:
     return json.dumps({"error": f"Unknown plan action: {action}"}, indent=2)
 
 
+async def _handle_build_chains(params: dict) -> Any:
+    """Auto-detect and assign attack chains across session findings."""
+    from numasec.mcp._singletons import get_mcp_session_store
+
+    session_id = params.get("session_id", "")
+    if not session_id:
+        return json.dumps({"error": "session_id is required"}, indent=2)
+
+    store = get_mcp_session_store()
+    try:
+        chains = await store.build_chains(session_id)
+    except KeyError:
+        return json.dumps({"error": f"Session not found: {session_id}"}, indent=2)
+
+    return json.dumps(
+        {
+            "session_id": session_id,
+            "chains": chains,
+            "chain_count": len(chains),
+            "total_chained_findings": sum(len(v) for v in chains.values()),
+        },
+        indent=2,
+    )
+
+
 # Method dispatch table
 SPECIAL_METHODS: dict[str, Callable[..., Coroutine[Any, Any, Any]]] = {
     "list_tools": _handle_list_tools,
@@ -545,6 +571,7 @@ SPECIAL_METHODS: dict[str, Callable[..., Coroutine[Any, Any, Any]]] = {
     "relay_credentials": _handle_relay_credentials,
     "kb_search": _handle_kb_search,
     "plan": _handle_plan,
+    "build_chains": _handle_build_chains,
 }
 
 # Scanner tools whose results may contain auto-saveable vulnerabilities.
@@ -555,6 +582,7 @@ _SCANNER_TOOLS = {
     "access_control_test",
     "ssrf_test",
     "path_test",
+    "upload_test",
 }
 
 # Map vuln type → (default severity, CWE ID, title template)
@@ -586,6 +614,20 @@ _VULN_TYPE_MAP: dict[str, tuple[str, str, str]] = {
     "password_spray": ("high", "CWE-521", "Weak Password (Spray)"),
     "missing_rate_limit": ("medium", "CWE-307", "Missing Rate Limiting"),
     "oauth_open_redirect": ("high", "CWE-601", "OAuth Open Redirect"),
+    "crlf_header": ("high", "CWE-113", "CRLF Header Injection in '{param}'"),
+    "crlf_splitting": ("critical", "CWE-113", "HTTP Response Splitting in '{param}'"),
+    "crlf_log": ("medium", "CWE-117", "CRLF Log Injection in '{param}'"),
+    "header_injection": ("high", "CWE-113", "CRLF Header Injection in '{param}'"),
+    "response_splitting": ("critical", "CWE-113", "HTTP Response Splitting in '{param}'"),
+    "log_injection": ("medium", "CWE-117", "CRLF Log Injection in '{param}'"),
+    "unrestricted_upload": ("critical", "CWE-434", "Unrestricted File Upload"),
+    "webshell": ("critical", "CWE-434", "Web Shell Upload"),
+    "mime_bypass": ("high", "CWE-434", "MIME Type Bypass Upload"),
+    "limit_bypass": ("high", "CWE-362", "Race Condition Limit Bypass"),
+    "state_change": ("high", "CWE-362", "Race Condition State Change"),
+    "cl_te": ("critical", "CWE-444", "HTTP Request Smuggling (CL.TE)"),
+    "te_cl": ("critical", "CWE-444", "HTTP Request Smuggling (TE.CL)"),
+    "te_te": ("critical", "CWE-444", "HTTP Request Smuggling (TE.TE)"),
 }
 
 
@@ -627,6 +669,10 @@ async def _auto_save_findings(result: Any, tool_name: str) -> list[dict]:
             "payload": vuln.get("payload") or vuln.get("probe") or "",
             "tool_used": tool_name,
         }
+
+        # Pass confidence if scanner provides it
+        if "confidence" in vuln:
+            params["confidence"] = vuln["confidence"]
 
         try:
             resp_json = await _handle_save_finding(params)
