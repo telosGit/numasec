@@ -1,245 +1,74 @@
 {
   "$schema": "https://numasec.ai/theme.json",
   "defs": {
-    "darkStep1": "#0a0d0a",
-    "darkStep2": "#0f130f",
-    "darkStep3": "#141a14",
-    "darkStep4": "#1a221a",
-    "darkStep5": "#212b21",
-    "darkStep6": "#283428",
-    "darkStep7": "#2e3e2e",
-    "darkStep8": "#3d553d",
-    "darkStep9": "#00ff41",
-    "darkStep10": "#33ff6a",
-    "darkStep11": "#5a7a5a",
-    "darkStep12": "#b8d4b8",
-    "darkSecondary": "#20c20e",
-    "darkAccent": "#00e5ff",
-    "darkRed": "#ff3333",
-    "darkOrange": "#ff8c00",
-    "darkGreen": "#00ff41",
-    "darkCyan": "#00e5ff",
-    "darkYellow": "#cccc00",
-    "lightStep1": "#ffffff",
-    "lightStep2": "#f4f8f4",
-    "lightStep3": "#ecf2ec",
-    "lightStep4": "#e0ebe0",
-    "lightStep5": "#d4e2d4",
-    "lightStep6": "#c0d4c0",
-    "lightStep7": "#8aaa8a",
-    "lightStep8": "#6a8a6a",
-    "lightStep9": "#008f11",
-    "lightStep10": "#007510",
-    "lightStep11": "#5a7a5a",
-    "lightStep12": "#0f1a0f",
-    "lightSecondary": "#006b0a",
-    "lightAccent": "#007088",
-    "lightRed": "#cc1111",
-    "lightOrange": "#aa5500",
-    "lightGreen": "#008f11",
-    "lightCyan": "#007088",
-    "lightYellow": "#888800"
+    "base":    "#000000",
+    "surface": "#060906",
+    "overlay": "#0c140c",
+    "muted":   "#142314",
+    "subtle":  "#1e341e",
+    "dim":     "#2e4a2e",
+    "faded":   "#4a6e4a",
+    "text":    "#d8ead8",
+
+    "green":   "#30d158",
+    "neon":    "#00ff41",
+    "lime":    "#a8ff3e",
+    "red":     "#ff453a",
+    "yellow":  "#ffd60a"
   },
   "theme": {
-    "primary": {
-      "dark": "darkStep9",
-      "light": "lightStep9"
-    },
-    "secondary": {
-      "dark": "darkSecondary",
-      "light": "lightSecondary"
-    },
-    "accent": {
-      "dark": "darkAccent",
-      "light": "lightAccent"
-    },
-    "error": {
-      "dark": "darkRed",
-      "light": "lightRed"
-    },
-    "warning": {
-      "dark": "darkOrange",
-      "light": "lightOrange"
-    },
-    "success": {
-      "dark": "darkGreen",
-      "light": "lightGreen"
-    },
-    "info": {
-      "dark": "darkCyan",
-      "light": "lightCyan"
-    },
-    "text": {
-      "dark": "darkStep12",
-      "light": "lightStep12"
-    },
-    "textMuted": {
-      "dark": "darkStep11",
-      "light": "lightStep11"
-    },
-    "background": {
-      "dark": "darkStep1",
-      "light": "lightStep1"
-    },
-    "backgroundPanel": {
-      "dark": "darkStep2",
-      "light": "lightStep2"
-    },
-    "backgroundElement": {
-      "dark": "darkStep3",
-      "light": "lightStep3"
-    },
-    "border": {
-      "dark": "darkStep7",
-      "light": "lightStep7"
-    },
-    "borderActive": {
-      "dark": "darkStep8",
-      "light": "lightStep8"
-    },
-    "borderSubtle": {
-      "dark": "darkStep6",
-      "light": "lightStep6"
-    },
-    "diffAdded": {
-      "dark": "#00ff41",
-      "light": "#008f11"
-    },
-    "diffRemoved": {
-      "dark": "#ff3333",
-      "light": "#cc1111"
-    },
-    "diffContext": {
-      "dark": "#5a7a5a",
-      "light": "#5a7a5a"
-    },
-    "diffHunkHeader": {
-      "dark": "#5a7a5a",
-      "light": "#5a7a5a"
-    },
-    "diffHighlightAdded": {
-      "dark": "#33ff6a",
-      "light": "#008f11"
-    },
-    "diffHighlightRemoved": {
-      "dark": "#ff3333",
-      "light": "#cc1111"
-    },
-    "diffAddedBg": {
-      "dark": "#0a1a0a",
-      "light": "#d5e5d5"
-    },
-    "diffRemovedBg": {
-      "dark": "#1a0a0a",
-      "light": "#f7d8db"
-    },
-    "diffContextBg": {
-      "dark": "darkStep2",
-      "light": "lightStep2"
-    },
-    "diffLineNumber": {
-      "dark": "darkStep3",
-      "light": "lightStep3"
-    },
-    "diffAddedLineNumberBg": {
-      "dark": "#0d1a0d",
-      "light": "#c5d5c5"
-    },
-    "diffRemovedLineNumberBg": {
-      "dark": "#1a0d0d",
-      "light": "#e7c8cb"
-    },
-    "markdownText": {
-      "dark": "darkStep12",
-      "light": "lightStep12"
-    },
-    "markdownHeading": {
-      "dark": "darkAccent",
-      "light": "lightAccent"
-    },
-    "markdownLink": {
-      "dark": "darkStep9",
-      "light": "lightStep9"
-    },
-    "markdownLinkText": {
-      "dark": "darkCyan",
-      "light": "lightCyan"
-    },
-    "markdownCode": {
-      "dark": "darkGreen",
-      "light": "lightGreen"
-    },
-    "markdownBlockQuote": {
-      "dark": "darkYellow",
-      "light": "lightYellow"
-    },
-    "markdownEmph": {
-      "dark": "darkYellow",
-      "light": "lightYellow"
-    },
-    "markdownStrong": {
-      "dark": "darkOrange",
-      "light": "lightOrange"
-    },
-    "markdownHorizontalRule": {
-      "dark": "darkStep11",
-      "light": "lightStep11"
-    },
-    "markdownListItem": {
-      "dark": "darkStep9",
-      "light": "lightStep9"
-    },
-    "markdownListEnumeration": {
-      "dark": "darkCyan",
-      "light": "lightCyan"
-    },
-    "markdownImage": {
-      "dark": "darkStep9",
-      "light": "lightStep9"
-    },
-    "markdownImageText": {
-      "dark": "darkCyan",
-      "light": "lightCyan"
-    },
-    "markdownCodeBlock": {
-      "dark": "darkStep12",
-      "light": "lightStep12"
-    },
-    "syntaxComment": {
-      "dark": "darkStep11",
-      "light": "lightStep11"
-    },
-    "syntaxKeyword": {
-      "dark": "darkAccent",
-      "light": "lightAccent"
-    },
-    "syntaxFunction": {
-      "dark": "darkStep9",
-      "light": "lightStep9"
-    },
-    "syntaxVariable": {
-      "dark": "darkRed",
-      "light": "lightRed"
-    },
-    "syntaxString": {
-      "dark": "darkGreen",
-      "light": "lightGreen"
-    },
-    "syntaxNumber": {
-      "dark": "darkOrange",
-      "light": "lightOrange"
-    },
-    "syntaxType": {
-      "dark": "darkYellow",
-      "light": "lightYellow"
-    },
-    "syntaxOperator": {
-      "dark": "darkCyan",
-      "light": "lightCyan"
-    },
-    "syntaxPunctuation": {
-      "dark": "darkStep12",
-      "light": "lightStep12"
-    }
+    "primary":              "neon",
+    "secondary":            "green",
+    "accent":               "lime",
+    "error":                "red",
+    "warning":              "yellow",
+    "success":              "green",
+    "info":                 "green",
+    "text":                 "text",
+    "textMuted":            "faded",
+    "selectedListItemText": "base",
+    "background":           "base",
+    "backgroundPanel":      "surface",
+    "backgroundElement":    "overlay",
+    "backgroundMenu":       "#030603",
+    "border":               "muted",
+    "borderActive":         "subtle",
+    "borderSubtle":         "#0a110a",
+    "thinkingOpacity": 0.5,
+    "diffAdded":               "green",
+    "diffRemoved":             "red",
+    "diffContext":             "faded",
+    "diffHunkHeader":          "dim",
+    "diffHighlightAdded":      "neon",
+    "diffHighlightRemoved":    "#ff6b6b",
+    "diffAddedBg":             "#051205",
+    "diffRemovedBg":           "#150505",
+    "diffContextBg":           "surface",
+    "diffLineNumber":          "muted",
+    "diffAddedLineNumberBg":   "#030903",
+    "diffRemovedLineNumberBg": "#0e0303",
+    "markdownText":            "text",
+    "markdownHeading":         "neon",
+    "markdownLink":            "green",
+    "markdownLinkText":        "green",
+    "markdownCode":            "neon",
+    "markdownBlockQuote":      "faded",
+    "markdownEmph":            "lime",
+    "markdownStrong":          "neon",
+    "markdownHorizontalRule":  "muted",
+    "markdownListItem":        "green",
+    "markdownListEnumeration": "green",
+    "markdownImage":           "green",
+    "markdownImageText":       "green",
+    "markdownCodeBlock":       "text",
+    "syntaxComment":   "faded",
+    "syntaxKeyword":   "neon",
+    "syntaxFunction":  "green",
+    "syntaxVariable":  "text",
+    "syntaxString":    "lime",
+    "syntaxNumber":    "yellow",
+    "syntaxType":      "green",
+    "syntaxOperator":  "red",
+    "syntaxPunctuation": "faded"
   }
 }

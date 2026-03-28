@@ -1,5 +1,6 @@
 import path from "path"
 import os from "os"
+import fs from "fs/promises"
 import z from "zod"
 import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
 import { NamedError } from "@numasec/util/error"
@@ -20,7 +21,7 @@ export namespace ConfigPaths {
   }
 
   export async function directories(directory: string, worktree: string) {
-    return [
+    const candidates = [
       Global.Path.config,
       ...(!Flag.NUMASEC_DISABLE_PROJECT_CONFIG
         ? await Array.fromAsync(
@@ -40,6 +41,24 @@ export namespace ConfigPaths {
       )),
       ...(Flag.NUMASEC_CONFIG_DIR ? [Flag.NUMASEC_CONFIG_DIR] : []),
     ]
+
+    // Resolve symlinks on the worktree root so we can detect config dirs that
+    // are symlinks pointing at the project root (e.g. ~/.numasec -> /project).
+    // Such dirs would cause loadAgent() to scan the entire project source tree.
+    const realWorktree = await fs.realpath(worktree).catch(() => worktree)
+
+    const resolved = await Promise.all(
+      candidates.map(async (d) => {
+        const real = await fs.realpath(d).catch(() => d)
+        // Drop any config dir whose real path IS the worktree root or one of its
+        // ancestors, since scanning "{agent,agents}/**/*.md" from there would pick
+        // up every markdown file in the project source tree.
+        if ((realWorktree + "/").startsWith(real + "/")) return null
+        return d
+      }),
+    )
+
+    return resolved.filter((x): x is string => x !== null)
   }
 
   export function fileInDirectory(dir: string, name: string) {

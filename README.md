@@ -2,7 +2,7 @@
 <h3 align="center">Your AI Cyber Security companion. Open source. Runs in the terminal.</h3>
 
 <p align="center">
-  <img src="docs/numasecpreview.png" alt="numasec running a pentest against OWASP Juice Shop" width="900" />
+  <img src="docs/readmeimage.png" alt="numasec running a pentest against OWASP Juice Shop" width="900" />
 </p>
 
 <p align="center">
