@@ -1,0 +1,22 @@
+id: cookie-security
+name: "Insecure Cookie Configuration"
+severity: medium
+cwe: CWE-614
+
+request:
+  method: GET
+  path: /
+
+matchers:
+  - type: header_value
+    header: "Set-Cookie"
+    pattern: "(?i)(?!.*secure)"
+    description: "Cookie missing Secure flag — sent over unencrypted connections"
+  - type: header_value
+    header: "Set-Cookie"
+    pattern: "(?i)(?!.*httponly)"
+    description: "Cookie missing HttpOnly flag — accessible to JavaScript"
+  - type: header_value
+    header: "Set-Cookie"
+    pattern: "(?i)(?!.*samesite)"
+    description: "Cookie missing SameSite attribute — vulnerable to CSRF"

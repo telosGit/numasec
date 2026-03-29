@@ -1,0 +1,13 @@
+id: exposed-admin-panels
+name: "Exposed Admin Panels"
+severity: high
+cwe: CWE-425
+
+request:
+  method: GET
+  path: /
+
+matchers:
+  - type: status_code
+    code: 200
+    description: "Admin panel accessible without authentication"

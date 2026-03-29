@@ -1,0 +1,18 @@
+id: cors-permissive
+name: "Permissive CORS Configuration"
+severity: high
+cwe: CWE-942
+
+request:
+  method: GET
+  path: /
+
+matchers:
+  - type: header_value
+    header: "Access-Control-Allow-Origin"
+    pattern: "^\\*$"
+    description: "CORS allows any origin (wildcard)"
+  - type: header_value
+    header: "Access-Control-Allow-Credentials"
+    pattern: "(?i)true"
+    description: "CORS allows credentials — combined with permissive origin this is critical"

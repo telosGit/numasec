@@ -794,4 +794,42 @@ def create_default_tool_registry() -> ToolRegistry:
         len(registry._tools),
         len([t for t in registry._tools if t != "run_command"]),
     )
+
+    # ------------------------------------------------------------------
+    # Load external plugins and community templates
+    # ------------------------------------------------------------------
+    from numasec.scanners._plugin import load_plugins, load_yaml_scanners
+
+    plugin_count = load_plugins(registry)
+    if plugin_count:
+        logger.info("Loaded %d external plugins", plugin_count)
+
+    # Load community templates from bundled + user directories
+    from pathlib import Path
+
+    template_dirs = [
+        Path(__file__).resolve().parent.parent.parent / "community-templates",
+        Path.home() / ".numasec" / "templates",
+        Path.home() / ".numasec" / "plugins",
+    ]
+    for tdir in template_dirs:
+        scanners = load_yaml_scanners(tdir)
+        for scanner in scanners:
+            registry.register(
+                f"template_{scanner.id}",
+                scanner.scan,
+                schema={
+                    "name": f"template_{scanner.id}",
+                    "description": f"[Template] {scanner.name}",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "base_url": {"type": "string", "description": "Target URL"},
+                            "timeout": {"type": "number", "default": 10.0},
+                        },
+                        "required": ["base_url"],
+                    },
+                },
+            )
+
     return registry
