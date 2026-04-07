@@ -37,6 +37,15 @@ export function isRegistered(): boolean {
 }
 
 /**
+ * Returns the in-flight registration promise, if any.
+ * Call `await waitForRegistration()` before MCP.tools() to avoid
+ * a race where tools are resolved before the internal server registers.
+ */
+export function waitForRegistration(): Promise<void> | undefined {
+  return registrationPromise
+}
+
+/**
  * Register the Python MCP server as the internal scanner backend.
  * Called lazily on first security tool call or at app startup.
  * Safe to call multiple times — subsequent calls await the first registration.
@@ -72,6 +81,7 @@ async function doRegisterInternalServer(): Promise<void> {
 
     if (internalStatus?.status === "connected") {
       log.info("internal MCP server connected")
+      startHealthMonitor()
     } else {
       log.error("internal MCP server failed to connect", { status: internalStatus })
       registrationPromise = undefined

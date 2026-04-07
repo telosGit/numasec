@@ -857,6 +857,13 @@ export namespace SessionPrompt {
       })
     }
 
+    // Wait for internal MCP server registration to complete before
+    // resolving tools. The registration is fire-and-forget at worker startup,
+    // so the first prompt loop may start before it finishes.
+    const { waitForRegistration } = await import("@/bridge/internal")
+    const pending = waitForRegistration()
+    if (pending) await pending.catch(() => {})
+
     for (const [key, item] of Object.entries(await MCP.tools())) {
       const execute = item.execute
       if (!execute) continue

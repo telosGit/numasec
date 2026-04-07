@@ -562,6 +562,12 @@ export namespace MCP {
           result[key] = s.status[key] ?? { status: "disabled" }
         }
 
+        // Include programmatically-added servers (e.g. __internal__)
+        // that aren't in the user config but have a tracked status.
+        for (const [key, st] of Object.entries(s.status)) {
+          if (!(key in result)) result[key] = st
+        }
+
         return result
       })
 
