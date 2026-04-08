@@ -2,6 +2,43 @@
 
 ---
 
+## [4.1.3] - 2026-04-08 — Dependency Updates & ai-sdk v6 Migration
+
+### Dependencies
+
+- **cryptography**: 43.x → 43–46.x (security patches for CVEs)
+- **ai** (core): 5.0.124 → 6.0.153 (major — LanguageModel V2→V3 protocol)
+- **@ai-sdk/provider**: 2.0.1 → 3.0.8
+- **@ai-sdk/provider-utils**: 3.0.21 → 4.0.23
+- All 18 `@ai-sdk/*` provider packages bumped to v6-compatible versions
+- **@openrouter/ai-sdk-provider**: 1.5.4 → 2.5.0
+- **gitlab-ai-provider**: 5.3.3 → 6.4.1
+- **strip-ansi**: 7.1.2 → 7.2.0
+- **jose**: 6.0.11 → 6.2.2
+- **sst**: 3.18.10 → 4.5.12
+
+### Breaking Change Fixes (ai-sdk v5→v6)
+
+- `toModelMessages()` now async (`convertToModelMessages` is async in v6)
+- `toModelOutput` signature updated: receives `{toolCallId, input, output}` instead of raw output
+- Removed `type: "content"` from `ToolResultOutput` (no longer valid in v6)
+- `result.text` is now `PromiseLike<string>` — converted to `try/catch` with `await`
+- `Schema.jsonSchema` is now async — added `await`
+- `LanguageModelV2` → `LanguageModelV3` types across provider layer
+- Middleware requires `specificationVersion: "v3"`
+- `StreamTextResult` generic constraint updated (`unknown` → `any`)
+- Copilot SDK: renamed `createProviderDefinedToolFactory` → `createProviderToolFactory`
+- Copilot SDK: removed `name` property from tool factories (only `id` in v6)
+- Content type assertions for new `ToolApprovalResponse` union member
+
+### Maintenance
+
+- Cleaned up 6 obsolete local branches
+- Realigned `develop` branch to `main`
+- Supersedes Dependabot PRs: #2, #3, #4, #5, #6, #7
+
+---
+
 ## [Unreleased]
 
 ### Agent Architecture

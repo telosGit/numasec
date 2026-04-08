@@ -1421,7 +1421,7 @@ wheels = [
 
 [[package]]
 name = "numasec"
-version = "4.0.0"
+version = "4.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
@@ -1472,7 +1472,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.20,<1" },
     { name = "asyncssh", marker = "extra == 'protocols'", specifier = ">=2.14" },
     { name = "beautifulsoup4", specifier = ">=4.12,<5" },
-    { name = "cryptography", specifier = ">=43,<44" },
+    { name = "cryptography", specifier = ">=43,<47" },
     { name = "dnspython", specifier = ">=2.6,<3" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "hvac", marker = "extra == 'vault'", specifier = ">=2.4" },
