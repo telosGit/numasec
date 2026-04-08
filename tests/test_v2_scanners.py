@@ -459,16 +459,18 @@ class TestCsrfSameSiteCheck:
     async def test_missing_samesite_detected(self) -> None:
         """Cookie without SameSite attribute should be flagged."""
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
-                200,
-                headers={"Set-Cookie": "session=abc123; Path=/; HttpOnly"},
-                text="<html><body>page</body></html>",
-            )
+            if request.method == "GET":
+                return httpx.Response(
+                    200,
+                    headers={"Set-Cookie": "session=abc123; Path=/; HttpOnly"},
+                    text="<html><body>page</body></html>",
+                )
+            return httpx.Response(403)
 
         tester = CsrfTester(timeout=5.0)
         async with httpx.AsyncClient(transport=_transport(handler)) as client:
             csrf_result = CsrfResult(target="http://test.local/")
-            await tester._check_get(client, "http://test.local/", csrf_result)
+            await tester._check_cookies_and_tokens(client, "http://test.local/", csrf_result)
 
         weak_samesite = [v for v in csrf_result.vulnerabilities if v.vuln_type == "weak_samesite"]
         assert len(weak_samesite) >= 1
@@ -476,23 +478,25 @@ class TestCsrfSameSiteCheck:
     async def test_strict_samesite_ok(self) -> None:
         """Cookie with SameSite=Strict should not be flagged."""
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
-                200,
-                headers={"Set-Cookie": "session=abc123; SameSite=Strict; HttpOnly"},
-                text="<html><body>ok</body></html>",
-            )
+            if request.method == "GET":
+                return httpx.Response(
+                    200,
+                    headers={"Set-Cookie": "session=abc123; SameSite=Strict; HttpOnly"},
+                    text="<html><body>ok</body></html>",
+                )
+            return httpx.Response(403)
 
         tester = CsrfTester(timeout=5.0)
         async with httpx.AsyncClient(transport=_transport(handler)) as client:
             csrf_result = CsrfResult(target="http://test.local/")
-            await tester._check_get(client, "http://test.local/", csrf_result)
+            await tester._check_cookies_and_tokens(client, "http://test.local/", csrf_result)
 
         assert len(csrf_result.vulnerabilities) == 0
 
 
 class TestCsrfTokenCheck:
-    async def test_form_without_csrf_token_detected(self) -> None:
-        """HTML form without CSRF token should be flagged."""
+    async def test_state_changing_form_without_csrf_token_detected(self) -> None:
+        """POST form without CSRF token should be flagged."""
         html = """
         <html><body>
         <form action="/login" method="POST">
@@ -504,17 +508,45 @@ class TestCsrfTokenCheck:
         """
 
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
-                200, text=html, headers={"Content-Type": "text/html; charset=utf-8"}
-            )
+            if request.method == "GET":
+                return httpx.Response(
+                    200, text=html, headers={"Content-Type": "text/html; charset=utf-8"}
+                )
+            return httpx.Response(403)
 
         tester = CsrfTester(timeout=5.0)
         async with httpx.AsyncClient(transport=_transport(handler)) as client:
             csrf_result = CsrfResult(target="http://test.local/login")
-            await tester._check_get(client, "http://test.local/login", csrf_result)
+            await tester._check_cookies_and_tokens(client, "http://test.local/login", csrf_result)
 
         missing_token = [v for v in csrf_result.vulnerabilities if v.vuln_type == "missing_token"]
         assert len(missing_token) >= 1
+
+    async def test_get_form_without_token_not_flagged(self) -> None:
+        """GET form without CSRF token should NOT be flagged (not state-changing)."""
+        html = """
+        <html><body>
+        <form action="/search" method="GET">
+            <input type="text" name="q">
+            <input type="submit" value="Search">
+        </form>
+        </body></html>
+        """
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "GET":
+                return httpx.Response(
+                    200, text=html, headers={"Content-Type": "text/html; charset=utf-8"}
+                )
+            return httpx.Response(403)
+
+        tester = CsrfTester(timeout=5.0)
+        async with httpx.AsyncClient(transport=_transport(handler)) as client:
+            csrf_result = CsrfResult(target="http://test.local/search")
+            await tester._check_cookies_and_tokens(client, "http://test.local/search", csrf_result)
+
+        missing_token = [v for v in csrf_result.vulnerabilities if v.vuln_type == "missing_token"]
+        assert len(missing_token) == 0
 
     async def test_form_with_csrf_token_ok(self) -> None:
         """HTML form with CSRF token should NOT be flagged."""
@@ -529,17 +561,126 @@ class TestCsrfTokenCheck:
         """
 
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
-                200, text=html, headers={"Content-Type": "text/html; charset=utf-8"}
-            )
+            if request.method == "GET":
+                return httpx.Response(
+                    200, text=html, headers={"Content-Type": "text/html; charset=utf-8"}
+                )
+            return httpx.Response(403)
 
         tester = CsrfTester(timeout=5.0)
         async with httpx.AsyncClient(transport=_transport(handler)) as client:
             csrf_result = CsrfResult(target="http://test.local/login")
-            await tester._check_get(client, "http://test.local/login", csrf_result)
+            await tester._check_cookies_and_tokens(client, "http://test.local/login", csrf_result)
 
         missing_token = [v for v in csrf_result.vulnerabilities if v.vuln_type == "missing_token"]
         assert len(missing_token) == 0
+
+
+class TestCsrfOriginCheck:
+    async def test_server_accepting_evil_origin(self) -> None:
+        """Server returning 200 on evil Origin should flag origin_not_validated."""
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text="OK")
+
+        tester = CsrfTester(timeout=5.0)
+        async with httpx.AsyncClient(transport=_transport(handler)) as client:
+            csrf_result = CsrfResult(target="http://test.local/")
+            await tester._check_origin(client, "http://test.local/", csrf_result)
+
+        origin_vulns = [v for v in csrf_result.vulnerabilities if v.vuln_type == "origin_not_validated"]
+        assert len(origin_vulns) == 1
+
+    async def test_server_rejecting_evil_origin(self) -> None:
+        """Server returning 403 on evil Origin should not flag."""
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(403, text="Forbidden")
+
+        tester = CsrfTester(timeout=5.0)
+        async with httpx.AsyncClient(transport=_transport(handler)) as client:
+            csrf_result = CsrfResult(target="http://test.local/")
+            await tester._check_origin(client, "http://test.local/", csrf_result)
+
+        assert len(csrf_result.vulnerabilities) == 0
+
+
+class TestCsrfTokenBypass:
+    async def test_token_bypass_detected(self) -> None:
+        """Server accepting empty token should flag token_not_validated."""
+        from numasec.scanners.csrf_tester import _ParsedForm
+
+        tester = CsrfTester(timeout=5.0)
+        tester._forms = [
+            _ParsedForm(
+                method="POST",
+                action="/submit",
+                is_state_changing=True,
+                hidden_inputs={"_csrf": "valid_token_abc"},
+                has_csrf_token=True,
+                csrf_token_name="_csrf",
+            )
+        ]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text="OK")
+
+        async with httpx.AsyncClient(transport=_transport(handler)) as client:
+            csrf_result = CsrfResult(target="http://test.local/")
+            await tester._check_token_bypass(client, "http://test.local/", csrf_result)
+
+        token_vulns = [v for v in csrf_result.vulnerabilities if v.vuln_type == "token_not_validated"]
+        assert len(token_vulns) == 1
+
+    async def test_token_bypass_not_flagged_when_rejected(self) -> None:
+        """Server rejecting invalid token should not flag."""
+        from numasec.scanners.csrf_tester import _ParsedForm
+
+        tester = CsrfTester(timeout=5.0)
+        tester._forms = [
+            _ParsedForm(
+                method="POST",
+                action="/submit",
+                is_state_changing=True,
+                hidden_inputs={"_csrf": "valid_token_abc"},
+                has_csrf_token=True,
+                csrf_token_name="_csrf",
+            )
+        ]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(403, text="Forbidden")
+
+        async with httpx.AsyncClient(transport=_transport(handler)) as client:
+            csrf_result = CsrfResult(target="http://test.local/")
+            await tester._check_token_bypass(client, "http://test.local/", csrf_result)
+
+        assert len(csrf_result.vulnerabilities) == 0
+
+
+class TestCsrfJsonBypass:
+    async def test_json_bypass_detected(self) -> None:
+        """Server accepting JSON POST from evil origin should flag json_csrf_bypass."""
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text='{"status":"ok"}')
+
+        tester = CsrfTester(timeout=5.0)
+        async with httpx.AsyncClient(transport=_transport(handler)) as client:
+            csrf_result = CsrfResult(target="http://test.local/api")
+            await tester._check_json_bypass(client, "http://test.local/api", csrf_result)
+
+        json_vulns = [v for v in csrf_result.vulnerabilities if v.vuln_type == "json_csrf_bypass"]
+        assert len(json_vulns) == 1
+
+    async def test_json_bypass_not_flagged_when_rejected(self) -> None:
+        """Server rejecting JSON POST should not flag."""
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(403, text="Forbidden")
+
+        tester = CsrfTester(timeout=5.0)
+        async with httpx.AsyncClient(transport=_transport(handler)) as client:
+            csrf_result = CsrfResult(target="http://test.local/api")
+            await tester._check_json_bypass(client, "http://test.local/api", csrf_result)
+
+        assert len(csrf_result.vulnerabilities) == 0
 
 
 class TestCsrfFormsFound:
@@ -557,14 +698,16 @@ class TestCsrfFormsFound:
         """
 
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
-                200, text=html, headers={"Content-Type": "text/html; charset=utf-8"}
-            )
+            if request.method == "GET":
+                return httpx.Response(
+                    200, text=html, headers={"Content-Type": "text/html; charset=utf-8"}
+                )
+            return httpx.Response(403)
 
         tester = CsrfTester(timeout=5.0)
         async with httpx.AsyncClient(transport=_transport(handler)) as client:
             csrf_result = CsrfResult(target="http://test.local/")
-            await tester._check_get(client, "http://test.local/", csrf_result)
+            await tester._check_cookies_and_tokens(client, "http://test.local/", csrf_result)
 
         assert csrf_result.forms_found == 2
 
@@ -572,15 +715,17 @@ class TestCsrfFormsFound:
         """forms_found should be 0 when page has no forms."""
 
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
-                200, text="<html><body>No forms</body></html>",
-                headers={"Content-Type": "text/html; charset=utf-8"},
-            )
+            if request.method == "GET":
+                return httpx.Response(
+                    200, text="<html><body>No forms</body></html>",
+                    headers={"Content-Type": "text/html; charset=utf-8"},
+                )
+            return httpx.Response(403)
 
         tester = CsrfTester(timeout=5.0)
         async with httpx.AsyncClient(transport=_transport(handler)) as client:
             csrf_result = CsrfResult(target="http://test.local/")
-            await tester._check_get(client, "http://test.local/", csrf_result)
+            await tester._check_cookies_and_tokens(client, "http://test.local/", csrf_result)
 
         assert csrf_result.forms_found == 0
 

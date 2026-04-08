@@ -10,13 +10,13 @@ request:
 matchers:
   - type: header_value
     header: "Set-Cookie"
-    pattern: "(?i)(?!.*secure)"
+    pattern: "^(?!.*\\b[Ss]ecure\\b).*="
     description: "Cookie missing Secure flag — sent over unencrypted connections"
   - type: header_value
     header: "Set-Cookie"
-    pattern: "(?i)(?!.*httponly)"
+    pattern: "^(?!.*\\b[Hh]ttp[Oo]nly\\b).*="
     description: "Cookie missing HttpOnly flag — accessible to JavaScript"
   - type: header_value
     header: "Set-Cookie"
-    pattern: "(?i)(?!.*samesite)"
+    pattern: "^(?!.*\\b[Ss]ame[Ss]ite\\b).*="
     description: "Cookie missing SameSite attribute — vulnerable to CSRF"

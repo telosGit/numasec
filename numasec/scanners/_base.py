@@ -97,11 +97,6 @@ class ScanEngineFactory:
             from numasec.scanners.python_connect import PythonConnectScanner
 
             return PythonConnectScanner()
-        if preference == "shodan":
-            from numasec.scanners.shodan import ShodanPassiveScanner
-
-            return ShodanPassiveScanner()
-
         # Auto: best available
         if shutil.which("naabu"):
             from numasec.scanners.naabu import NaabuScanner

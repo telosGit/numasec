@@ -69,11 +69,13 @@ class SessionRateLimiter:
     starving each other.  Tool calls without a session_id fall back
     to the ``_global`` bucket.
 
+    Defaults are intentionally permissive for authorized pentesting.
+
     Limits are configurable via environment variables:
-        NUMASEC_RATE_PER_MINUTE  — per-session calls/min  (default 60)
-        NUMASEC_RATE_CONCURRENT  — per-session concurrency (default 5)
-        NUMASEC_RATE_GLOBAL_PER_MINUTE  — global calls/min  (default 120)
-        NUMASEC_RATE_GLOBAL_CONCURRENT  — global concurrency (default 10)
+        NUMASEC_RATE_PER_MINUTE  -- per-session calls/min  (default 9999, effectively unlimited)
+        NUMASEC_RATE_CONCURRENT  -- per-session concurrency (default 100)
+        NUMASEC_RATE_GLOBAL_PER_MINUTE  -- global calls/min  (default 9999, effectively unlimited)
+        NUMASEC_RATE_GLOBAL_CONCURRENT  -- global concurrency (default 200)
     """
 
     def __init__(
