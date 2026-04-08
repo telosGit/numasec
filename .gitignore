@@ -54,3 +54,7 @@ agent/packages/web/src/content/docs/
 sessions.db
 package.json
 docs/ROADMAP.md
+
+# TUI binary (downloaded by install.sh)
+bin/numasec-tui
+bin/.tui-version

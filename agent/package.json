@@ -44,7 +44,7 @@
       "drizzle-kit": "1.0.0-beta.19-d95b7a4",
       "drizzle-orm": "1.0.0-beta.19-d95b7a4",
       "effect": "4.0.0-beta.37",
-      "ai": "5.0.124",
+      "ai": "6.0.153",
       "hono": "4.10.7",
       "hono-openapi": "1.1.2",
       "fuzzysort": "3.1.0",
@@ -78,7 +78,7 @@
     "husky": "9.1.7",
     "prettier": "3.6.2",
     "semver": "^7.6.0",
-    "sst": "3.18.10",
+    "sst": "4.5.12",
     "turbo": "2.8.13"
   },
   "dependencies": {

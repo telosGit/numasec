@@ -4,6 +4,7 @@ import { Log } from "@/util/log"
 import {
   streamText,
   wrapLanguageModel,
+  type LanguageModel,
   type ModelMessage,
   type StreamTextResult,
   type Tool,
@@ -43,7 +44,7 @@ export namespace LLM {
     toolChoice?: "auto" | "required" | "none"
   }
 
-  export type StreamOutput = StreamTextResult<ToolSet, unknown>
+  export type StreamOutput = StreamTextResult<ToolSet, any>
 
   export async function stream(input: StreamInput) {
     const l = log
@@ -273,6 +274,7 @@ export namespace LLM {
         model: language,
         middleware: [
           {
+            specificationVersion: "v3",
             async transformParams(args) {
               if (args.type === "stream") {
                 // @ts-expect-error

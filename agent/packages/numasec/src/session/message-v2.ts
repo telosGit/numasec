@@ -572,11 +572,11 @@ export namespace MessageV2 {
     }))
   }
 
-  export function toModelMessages(
+  export async function toModelMessages(
     input: WithParts[],
     model: Provider.Model,
     options?: { stripMedia?: boolean },
-  ): ModelMessage[] {
+  ): Promise<ModelMessage[]> {
     const result: UIMessage[] = []
     const toolNames = new Set<string>()
     // Track media from tool results that need to be injected as user messages
@@ -600,37 +600,23 @@ export namespace MessageV2 {
       return false
     })()
 
-    const toModelOutput = (output: unknown) => {
+    const toModelOutput = (options: { toolCallId: string; input: unknown; output: unknown }) => {
+      const output = options.output
       if (typeof output === "string") {
-        return { type: "text", value: output }
+        return { type: "text" as const, value: output }
       }
 
-      if (typeof output === "object") {
+      if (typeof output === "object" && output !== null) {
         const outputObject = output as {
-          text: string
+          text?: string
           attachments?: Array<{ mime: string; url: string }>
         }
-        const attachments = (outputObject.attachments ?? []).filter((attachment) => {
-          return attachment.url.startsWith("data:") && attachment.url.includes(",")
-        })
-
-        return {
-          type: "content",
-          value: [
-            { type: "text", text: outputObject.text },
-            ...attachments.map((attachment) => ({
-              type: "media",
-              mediaType: attachment.mime,
-              data: iife(() => {
-                const commaIndex = attachment.url.indexOf(",")
-                return commaIndex === -1 ? attachment.url : attachment.url.slice(commaIndex + 1)
-              }),
-            })),
-          ],
-        }
+        // In v6, ToolResultOutput only supports text/json — serialize objects as text
+        const text = outputObject.text ?? JSON.stringify(output)
+        return { type: "text" as const, value: text }
       }
 
-      return { type: "json", value: output as never }
+      return { type: "text" as const, value: JSON.stringify(output) }
     }
 
     for (const msg of input) {
@@ -798,7 +784,7 @@ export namespace MessageV2 {
 
     const tools = Object.fromEntries(Array.from(toolNames).map((toolName) => [toolName, { toModelOutput }]))
 
-    return convertToModelMessages(
+    return await convertToModelMessages(
       result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")),
       {
         //@ts-expect-error (convertToModelMessages expects a ToolSet but only actually needs tools[name]?.toModelOutput)
