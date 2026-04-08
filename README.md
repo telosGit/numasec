@@ -38,7 +38,7 @@ curl -fsSL https://numasec.dev/install | bash
 
 Type `/target https://yourapp.com` and watch it work. The AI scans, finds vulnerabilities, chains attacks together, and writes the report. You watch, approve, and steer.
 
-Works with **Claude, GPT-4, Gemini, DeepSeek, Mistral**, or any OpenAI-compatible model.
+Works with **Claude, GPT-5, Gemini, DeepSeek, Mistral**, or any OpenAI-compatible model.
 
 ---
 
@@ -229,13 +229,13 @@ Switch between agents for different tasks:
 
 | Provider | Models |
 |---|---|
-| Anthropic | Claude Opus, Sonnet, Haiku |
-| OpenAI | GPT-4o, GPT-4, o1 |
-| Google | Gemini Pro, Flash |
-| AWS Bedrock | Claude, Llama |
-| Azure OpenAI | GPT-4, GPT-4o |
-| Mistral | Large, Medium |
-| DeepSeek | V2, Coder |
+| Anthropic | Claude Opus 4.6, Sonnet 4.6, Haiku 4.5 |
+| OpenAI | GPT-5, o3, o4-mini |
+| Google | Gemini 3 Pro, 3 Flash |
+| AWS Bedrock | Claude, Llama, Nova |
+| Azure OpenAI | GPT-5, GPT-4o |
+| Mistral | Large 3, Codestral |
+| DeepSeek | V3, R1 |
 | OpenRouter | Any model via aggregation |
 | GitHub Copilot | Copilot models |
 | Google Vertex | Gemini via Vertex |
