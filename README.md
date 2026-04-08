@@ -150,9 +150,9 @@ All 33 tools run locally. You bring any LLM. Pick your provider from the TUI.
 
 | Provider | Cost per pentest | Why |
 |---|---|---|
-| **DeepSeek V3** | **~$0.15** | Cheap. [Free tier available](https://platform.deepseek.com/) |
-| GPT | ~$2 | Higher quality analysis |
-| Claude | ~$3 | Best reasoning for complex chains |
+| **DeepSeek** | **~$0.07** | Best value. [Free tier available](https://platform.deepseek.com/) |
+| GPT-4.1 | ~$1 | Higher quality analysis |
+| Claude Sonnet 4 | ~$1.50 | Best reasoning for complex chains |
 | **Ollama (local)** | **$0** | Run locally. Full privacy |
 | AWS Bedrock / Azure | Varies | Enterprise compliance |
 
