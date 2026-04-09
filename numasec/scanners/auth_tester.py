@@ -459,6 +459,8 @@ class AuthTester:
         """
         start = time.monotonic()
         result = AuthResult(target=url)
+        if isinstance(checks, list):
+            checks = ",".join(checks)
         active_checks = {c.strip().lower() for c in checks.split(",") if c.strip()}
         hdrs = parsed_headers or {}
 

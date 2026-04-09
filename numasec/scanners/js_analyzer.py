@@ -44,6 +44,8 @@ _API_ENDPOINT_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"""\$\{[^}]*\}(/(?:api|rest)/[a-zA-Z0-9/_\-]+)"""),
     # XMLHttpRequest: .open("GET", "/api/..."
     re.compile(r"""\.open\s*\(\s*['"](?:GET|POST|PUT|DELETE|PATCH)['"],\s*['"`](/[a-zA-Z0-9/_\-]+)['"`]"""),
+    # SPA service calls without leading slash: "api/Users", "rest/products"
+    re.compile(r"""['"`]((?:api|rest|admin|internal)/[a-zA-Z0-9/_\-]+)['"`]"""),
 ]
 
 # Secret patterns — key + value in proximity
@@ -85,6 +87,11 @@ _SENSITIVE_ROUTE_PATTERNS: list[re.Pattern[str]] = [
     ),
     re.compile(
         r"""['"`](/(?:\.env|\.git|\.svn|wp-admin|wp-login|server-status|phpinfo|elmah)\.?[a-z]*)['"`]""", re.IGNORECASE
+    ),
+    # SPA framework routes: path:"administration", path:'dashboard'
+    re.compile(
+        r"""path\s*:\s*['"](?P<route>(?:admin|administrator|dashboard|debug|_debug|metrics|console|graphql|swagger|internal)[a-zA-Z0-9/_\-]*)['"]""",
+        re.IGNORECASE,
     ),
 ]
 

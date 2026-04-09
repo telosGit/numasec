@@ -328,7 +328,8 @@ def create_default_tool_registry() -> ToolRegistry:
                 "Test for Server-Side Request Forgery (SSRF). Injects internal and "
                 "cloud metadata URLs into query params. Auto-injects SSRF param names "
                 "(url, uri, path, dest, callback) even without existing params. "
-                "Most effective on endpoints with URL, redirect, callback, or webhook parameters."
+                "Most effective on endpoints with URL, redirect, callback, or webhook parameters. "
+                "For blind SSRF (no reflected data), pair with oob tool for callback detection."
             ),
             "parameters": {
                 "type": "object",
@@ -355,7 +356,8 @@ def create_default_tool_registry() -> ToolRegistry:
                 "Test for path traversal (LFI), XXE injection, open redirect, "
                 "and host header injection. Specify checks to run. "
                 "LFI effective on endpoints with file/path/template params. "
-                "XXE requires XML input. Open redirect on redirect/next/url params."
+                "XXE requires XML input (for blind XXE, pair with oob tool). "
+                "Open redirect on redirect/next/url params."
             ),
             "parameters": {
                 "type": "object",
@@ -592,9 +594,11 @@ def create_default_tool_registry() -> ToolRegistry:
         {
             "name": "oob",
             "description": (
-                "Out-of-Band blind vulnerability detection via interactsh. "
-                "Setup: creates a callback listener domain. Poll: checks for "
-                "DNS/HTTP/SMTP callbacks. Confirms blind SSRF, XXE, XSS, SQLi."
+                "Out-of-Band blind vulnerability detection via interactsh callback server. "
+                "Use AFTER reflection-based tests (ssrf_test, injection_test, path_test) "
+                "return no evidence — a callback proves the vulnerability is blind but exploitable. "
+                "Workflow: setup → inject callback domain in SSRF/XXE/SQLi payloads → poll for DNS/HTTP callbacks. "
+                "Confirms blind SSRF, XXE, XSS, SQLi."
             ),
             "parameters": {
                 "type": "object",

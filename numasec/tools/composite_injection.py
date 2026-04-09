@@ -37,6 +37,8 @@ async def injection_test(
         oob: Enable Out-of-Band detection for blind vulnerabilities via interactsh.
     """
     start = time.monotonic()
+    if isinstance(types, list):
+        types = ",".join(types)
     type_set = {t.strip().lower() for t in types.split(",")}
     extra_headers: dict[str, str] = headers if isinstance(headers, dict) else (json.loads(headers) if headers else {})
     param_list: list[str] | None = [p.strip() for p in params.split(",") if p.strip()] or None
