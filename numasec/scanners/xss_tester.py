@@ -186,10 +186,11 @@ class XSSResult:
     dom_sinks: list[dict[str, str]] = field(default_factory=list)
     dom_sources: list[dict[str, str]] = field(default_factory=list)
     duration_ms: float = 0.0
+    browser_skipped: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to JSON-friendly dict."""
-        return {
+        result: dict[str, Any] = {
             "target": self.target,
             "vulnerable": self.vulnerable,
             "vulnerabilities": [
@@ -219,6 +220,13 @@ class XSSResult:
                 else []
             ),
         }
+        if self.browser_skipped:
+            result["browser_skipped"] = True
+            result["browser_skip_reason"] = (
+                "Playwright not installed. DOM XSS browser testing was skipped. "
+                "Install with: pip install playwright && playwright install chromium"
+            )
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -431,12 +439,33 @@ class PythonXSSTester:
             return None
 
         response_text = resp.text
+        content_type = resp.headers.get("content-type", "")
+        is_json_response = "application/json" in content_type
 
         # Check if the canary is reflected with special chars intact
         if canary not in response_text:
             return None
 
         logger.info("Canary reflected in param=%s, escalating payloads", param)
+
+        # If the response is JSON, payload escalation is useless (the XSS
+        # will only happen when the client renders this data in the DOM).
+        # Flag as a DOM XSS candidate so the agent knows to use browser testing.
+        if is_json_response:
+            logger.info("Canary reflected in JSON response for param=%s — DOM XSS candidate", param)
+            return XSSVulnerability(
+                param=param,
+                xss_type="dom_xss_candidate",
+                payload=canary,
+                evidence=(
+                    f"Canary reflected unencoded in JSON response (param: {param}). "
+                    f"Server-side reflected XSS is not possible since the response is JSON, "
+                    f"but DOM XSS is likely if the client renders this value without sanitization. "
+                    f"Use browser-based testing to confirm."
+                ),
+                location=location,
+                confidence=0.4,
+            )
 
         # Detect injection context and select appropriate payloads
         context = _detect_context(response_text, canary)
@@ -678,6 +707,7 @@ class PythonXSSTester:
             from playwright.async_api import async_playwright
         except ImportError:
             logger.debug("Playwright not available — skipping browser DOM XSS scan")
+            result.browser_skipped = True
             return
 
         parsed = urlparse(url)

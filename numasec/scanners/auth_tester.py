@@ -481,6 +481,14 @@ class AuthTester:
             # Step 3: Active JWT checks (require a token)
             if "jwt" in active_checks:
                 jwts = [token] if token else self._extract_all_jwts(response) if response is not None else []
+
+                # Merge tokens discovered during credential testing (Step 2.5)
+                # so they get tested for JWT vulnerabilities too
+                if not jwts:
+                    for v in result.vulnerabilities:
+                        if v.forged_token and len(v.forged_token) > 50:
+                            jwts.append(v.forged_token)
+
                 result.jwts_found = [j[:40] + "..." for j in jwts]  # truncate for safety
 
                 for jwt_token in jwts:
