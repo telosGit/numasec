@@ -58,3 +58,6 @@ docs/ROADMAP.md
 # TUI binary (downloaded by install.sh)
 bin/numasec-tui
 bin/.tui-version
+
+# Local dev install script
+install-local.sh
