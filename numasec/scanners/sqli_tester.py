@@ -254,10 +254,10 @@ def _json_semantic_diff(true_resp: httpx.Response, false_resp: httpx.Response) -
     if isinstance(true_data, dict) and isinstance(false_data, dict):
         for key in ("data", "results", "items", "rows"):
             if key in true_data and key in false_data:
-                tl = true_data[key] if isinstance(true_data[key], list) else None
-                fl = false_data[key] if isinstance(false_data[key], list) else None
-                if tl is not None and fl is not None and len(tl) != len(fl):
-                    return f"{key} array length {len(tl)} vs {len(fl)}"
+                tv_list = true_data[key]
+                fv_list = false_data[key]
+                if isinstance(tv_list, list) and isinstance(fv_list, list) and len(tv_list) != len(fv_list):
+                    return f"{key} array length {len(tv_list)} vs {len(fv_list)}"
 
     return ""
 

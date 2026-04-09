@@ -67,7 +67,7 @@ def finding_to_sarif_result(finding: Finding) -> SarifResult:
             "numasec:remediation": finding.remediation_summary,
             **({"numasec:chain_id": finding.chain_id} if getattr(finding, "chain_id", None) else {}),
             **(
-                {"numasec:related_findings": finding.related_finding_ids}
+                {"numasec:related_findings": ",".join(finding.related_finding_ids)}
                 if getattr(finding, "related_finding_ids", None)
                 else {}
             ),
