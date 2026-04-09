@@ -159,4 +159,66 @@ async def recon(
             logger.debug("CVE enrichment failed: %s", exc)
             # CVE enrichment is non-critical; don't pollute results with errors
 
+    # ------------------------------------------------------------------
+    # Target profile synthesis — high-level classification for the agent
+    # ------------------------------------------------------------------
+    target_profile: dict[str, Any] = {}
+
+    # Probable database from open ports
+    if port_scan_data and isinstance(port_scan_data, dict):
+        open_ports = port_scan_data.get("open_ports", port_scan_data.get("ports", []))
+        port_numbers: set[int] = set()
+        if isinstance(open_ports, dict):
+            for v in open_ports.values():
+                if isinstance(v, dict):
+                    port_numbers.add(int(v.get("port", 0)))
+        elif isinstance(open_ports, list):
+            for v in open_ports:
+                if isinstance(v, dict):
+                    port_numbers.add(int(v.get("port", 0)))
+
+        db_map = {3306: "MySQL", 5432: "PostgreSQL", 27017: "MongoDB", 1433: "MSSQL", 6379: "Redis", 1521: "Oracle"}
+        detected_dbs = [db_map[p] for p in port_numbers if p in db_map]
+        target_profile["probable_database"] = detected_dbs[0] if detected_dbs else None
+        target_profile["total_open_ports"] = len(port_numbers)
+    else:
+        target_profile["probable_database"] = None
+        target_profile["total_open_ports"] = 0
+
+    # Web server and technologies from fingerprinting
+    tech_data = results.get("technologies", {})
+    if isinstance(tech_data, dict):
+        techs = tech_data.get("technologies", [])
+        tech_names = []
+        web_server = None
+        for t in techs:
+            name = t.get("name", "") if isinstance(t, dict) else str(t)
+            tech_names.append(name)
+            if not web_server and any(ws in name.lower() for ws in ("nginx", "apache", "iis", "caddy", "lighttpd")):
+                web_server = name
+        target_profile["web_server"] = web_server
+        target_profile["technologies"] = tech_names
+    else:
+        target_profile["web_server"] = None
+        target_profile["technologies"] = []
+
+    # CVE summary
+    cve_data = results.get("cves", {})
+    critical_count = 0
+    has_exploits = False
+    if isinstance(cve_data, dict):
+        for cve_list in cve_data.values():
+            if isinstance(cve_list, list):
+                for cve in cve_list:
+                    if isinstance(cve, dict):
+                        severity = str(cve.get("severity", "")).lower()
+                        if severity in ("critical", "high"):
+                            critical_count += 1
+                        if cve.get("exploit_available"):
+                            has_exploits = True
+    target_profile["critical_cves"] = critical_count
+    target_profile["has_known_exploits"] = has_exploits
+
+    results["target_profile"] = target_profile
+
     return results

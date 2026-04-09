@@ -173,6 +173,8 @@ class XSSVulnerability:
     evidence: str
     location: str = "GET"  # "GET" | "POST"
     confidence: float = 0.5
+    encoding_bypassed: bool = False
+    csp_present: bool = False
 
 
 @dataclass
@@ -201,6 +203,10 @@ class XSSResult:
                     "evidence": v.evidence,
                     "location": v.location,
                     "confidence": v.confidence,
+                    "reflection_context": {
+                        "encoding_bypassed": v.encoding_bypassed,
+                        "csp_present": v.csp_present,
+                    },
                 }
                 for v in self.vulnerabilities
             ],
@@ -441,6 +447,7 @@ class PythonXSSTester:
         response_text = resp.text
         content_type = resp.headers.get("content-type", "")
         is_json_response = "application/json" in content_type
+        has_csp = "content-security-policy" in {k.lower() for k in resp.headers}
 
         # Check if the canary is reflected with special chars intact
         if canary not in response_text:
@@ -465,6 +472,8 @@ class PythonXSSTester:
                 ),
                 location=location,
                 confidence=0.4,
+                encoding_bypassed=True,
+                csp_present=has_csp,
             )
 
         # Detect injection context and select appropriate payloads
@@ -510,6 +519,8 @@ class PythonXSSTester:
                     evidence=self._extract_evidence(resp.text, payload),
                     location=location,
                     confidence=0.8,
+                    encoding_bypassed=True,
+                    csp_present=has_csp,
                 )
 
         # Canary reflected but no payload executed — still a finding (partial)
@@ -520,6 +531,8 @@ class PythonXSSTester:
             evidence=f"Canary string reflected unencoded in response body (param: {param})",
             location=location,
             confidence=0.6,
+            encoding_bypassed=True,
+            csp_present=has_csp,
         )
 
     @staticmethod

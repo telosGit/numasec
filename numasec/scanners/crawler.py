@@ -186,6 +186,44 @@ class CrawlResult:
             "emails": self.emails,
             "pages_crawled": self.pages_crawled,
             "duration_ms": round(self.duration_ms, 2),
+            "target_summary": self._build_target_summary(),
+        }
+
+    def _build_target_summary(self) -> dict[str, Any]:
+        """Synthesise a classification summary from crawl data."""
+        api_indicators = [
+            u for u in self.urls if any(seg in u.lower() for seg in ("/api/", "/rest/", "/graphql", "/v1/", "/v2/"))
+        ]
+        endpoints_with_params = sum(1 for u in self.urls if "?" in u)
+        has_file_upload = any(
+            f.get("method", "").upper() == "POST"
+            and any("file" in p.lower() or "upload" in p.lower() for p in f.get("params", []))
+            for f in self.forms
+        )
+        has_auth_forms = any(
+            any(kw in str(f.get("action", "")).lower() for kw in ("login", "auth", "signin", "register", "signup"))
+            or any(p.lower() in ("password", "passwd", "email", "username") for p in f.get("params", []))
+            for f in self.forms
+        )
+
+        # Classify: lots of API paths + few forms = api, lots of forms + HTML = traditional
+        api_ratio = len(api_indicators) / max(len(self.urls), 1)
+        if api_ratio > 0.5 and len(self.forms) == 0:
+            app_type = "api_only"
+        elif api_ratio > 0.2 and len(self.js_files) > 3:
+            app_type = "spa_with_api"
+        elif len(self.forms) > 2:
+            app_type = "traditional"
+        else:
+            app_type = "hybrid"
+
+        return {
+            "application_type": app_type,
+            "total_endpoints": len(self.urls),
+            "endpoints_with_params": endpoints_with_params,
+            "has_file_upload": has_file_upload,
+            "has_auth_forms": has_auth_forms,
+            "api_indicators": api_indicators[:20],
         }
 
 

@@ -176,6 +176,11 @@ class SQLiResult:
                     "payload": v.payload,
                     "confidence": v.confidence,
                     "column_count": v.column_count,
+                    "injection_context": {
+                        "is_blind": v.technique in ("boolean_blind", "time_blind"),
+                        "data_extractable": v.technique in ("error_based", "union_based"),
+                        "database_confirmed": bool(v.dbms),
+                    },
                 }
                 for v in self.vulnerabilities
             ],
