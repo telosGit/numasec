@@ -31,7 +31,7 @@ Server-rendered HTML with form inputs:
 -> xss_test on reflected parameters. Then stored XSS on user content endpoints. DOM XSS on JS-heavy pages.
 
 URL/path parameters (redirect, callback, url, file, template):
--> ssrf_test on URL params, path_test on file/template params. Parameter names are strong signals.
+-> ssrf_test on URL params, injection_test on file/template params (LFI/SSTI). Parameter names are strong signals.
 
 Nothing obvious:
 -> dir_fuzz for hidden endpoints, js_analyze for secrets, race_test on state-changing endpoints.

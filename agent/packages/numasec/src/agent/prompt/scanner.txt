@@ -29,7 +29,7 @@ RESULT INTERPRETATION
 - Check next_steps in scanner output -- they suggest follow-up actions
 
 EXECUTION
-- run_scanner_batch for independent tests on different endpoints
+- Run independent tests on different endpoints in parallel
 - Sequential when one result informs the next (crawl -> test endpoints; auth_test -> use token)
 - WAF blocks (403 with security headers): report and move on
 - Start 2-3 parallel tasks, increase if target handles it

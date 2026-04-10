@@ -29,6 +29,10 @@ export { GetFindingsTool } from "./tool/get-findings"
 export { BuildChainsTool } from "./tool/build-chains"
 export { GenerateReportTool } from "./tool/generate-report"
 
+// Intelligence tools
+export { KbSearchTool } from "./tool/kb-search"
+export { PentestPlanTool } from "./tool/pentest-plan"
+
 // Planner
 export { generatePlan, formatPlan, applyReplanSignal } from "./planner/planner"
 
@@ -67,6 +71,8 @@ import { SaveFindingTool } from "./tool/save-finding"
 import { GetFindingsTool } from "./tool/get-findings"
 import { BuildChainsTool } from "./tool/build-chains"
 import { GenerateReportTool } from "./tool/generate-report"
+import { KbSearchTool } from "./tool/kb-search"
+import { PentestPlanTool } from "./tool/pentest-plan"
 
 export const SecurityTools = [
   // Primitives
@@ -91,4 +97,7 @@ export const SecurityTools = [
   GetFindingsTool,
   BuildChainsTool,
   GenerateReportTool,
+  // Intelligence
+  KbSearchTool,
+  PentestPlanTool,
 ]
