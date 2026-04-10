@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# numasec v5.0.0 — local install from source
+# numasec — local install from source
 # Installs dependencies, builds the binary, and symlinks to ~/.local/bin/numasec
 
 RED='\033[0;31m'

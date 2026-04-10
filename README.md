@@ -186,9 +186,17 @@ numasec
 
 ```bash
 git clone https://github.com/FrancescoStabile/numasec.git
+cd numasec
+bash install.sh
+```
+
+Or manually:
+
+```bash
 cd numasec/agent
 bun install
 bun run build
+# Binary at agent/packages/numasec/dist/numasec-<platform>-<arch>/bin/numasec
 ```
 
 ### Optional: external tools
