@@ -2,7 +2,41 @@
 
 ---
 
-## [4.1.4] — Agent Intelligence & Tool Reliability
+## [5.0.0] — Full TypeScript Rewrite
+
+### Breaking
+
+- **Zero Python.** The entire Python backend (31K LOC) has been removed. numasec is now a pure TypeScript application.
+- **No pip install.** Install via `bun install` from source. npm distribution coming soon.
+- **No Python bridge.** All security tools are native TypeScript, registered via `Tool.define()`.
+
+### Added
+
+- 21 native TypeScript security tools replacing the Python MCP server
+- Generic payload→response scanner engine (replaces ~10 individual Python scanners)
+- BM25 knowledge base retriever with 35 YAML attack templates
+- Finding enrichment pipeline: CWE → CVSS 3.1 → OWASP Top 10 → MITRE ATT&CK
+- SARIF 2.1.0, HTML (Bootstrap), and Markdown report generators
+- PTES 5-phase deterministic planner with replan signals
+- `kb_search` tool for security knowledge base queries
+- `pentest_plan` tool wrapping the deterministic planner
+- Attack chain grouping algorithm with URL-based clustering
+- TCP port scanner (pure TypeScript, falls back to nmap when available)
+- JWT analyzer (alg:none, weak HS256, key confusion)
+- Race condition tester, file upload bypass tester, GraphQL tester
+
+### Removed
+
+- `numasec/` — entire Python package (scanners, MCP server, models, storage, reporting)
+- `tests/` — all Python tests (1,251 tests)
+- `pyproject.toml`, `uv.lock`, `install.sh`
+- `agent/packages/numasec/src/bridge/` — Python bridge code
+- `community-templates/` — replaced by `src/security/kb/templates/`
+- All Python CI jobs (ruff, mypy, pytest, bridge-validate)
+
+---
+
+## [4.1.5] — NoSQL Body Injection, Mass Assignment, Chatbot Detection
 
 ### Improved
 
