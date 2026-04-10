@@ -138,10 +138,12 @@ jobs:
             npm publish "$dir" --access public || echo "Failed to publish $name (may already exist)"
           done
 
-          # Publish main package last
+          # Publish main package last (use tarball to avoid path/name confusion)
           if [ -d "packages/numasec" ]; then
             echo "Publishing numasec..."
-            npm publish "packages/numasec" --access public
+            cd packages/numasec
+            npm pack
+            npm publish *.tgz --access public
           fi
 
   publish-docker:
