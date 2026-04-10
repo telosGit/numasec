@@ -130,6 +130,25 @@ jobs:
             break
           done
 
+          # Fix: rebuild optionalDependencies to include ALL platform packages
+          if [ -d "packages/numasec" ]; then
+            node -e "
+              const fs = require('fs');
+              const path = require('path');
+              const pkg = JSON.parse(fs.readFileSync('packages/numasec/package.json', 'utf8'));
+              const deps = {};
+              for (const dir of fs.readdirSync('packages')) {
+                if (dir.startsWith('numasec-')) {
+                  const sub = JSON.parse(fs.readFileSync(path.join('packages', dir, 'package.json'), 'utf8'));
+                  deps[sub.name] = sub.version;
+                }
+              }
+              pkg.optionalDependencies = deps;
+              fs.writeFileSync('packages/numasec/package.json', JSON.stringify(pkg, null, 2));
+              console.log('optionalDependencies:', deps);
+            "
+          fi
+
           # Publish platform binary packages first
           for dir in packages/numasec-*/; do
             [ -d "$dir" ] || continue
