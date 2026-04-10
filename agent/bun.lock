@@ -233,7 +233,7 @@
     },
     "packages/numasec": {
       "name": "numasec",
-      "version": "1.3.3",
+      "version": "1.0.0",
       "bin": {
         "numasec": "./bin/numasec",
       },

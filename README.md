@@ -36,8 +36,7 @@
 ## Quickstart
 
 ```bash
-git clone https://github.com/FrancescoStabile/numasec.git
-cd numasec/agent && bun install && bun run build
+npm install -g numasec
 numasec
 ```
 
@@ -176,7 +175,14 @@ Anthropic · OpenAI · Google Gemini · AWS Bedrock · Azure OpenAI · Mistral �
 
 ## Installation
 
-### From source (recommended)
+### npm (recommended)
+
+```bash
+npm install -g numasec
+numasec
+```
+
+### From source
 
 ```bash
 git clone https://github.com/FrancescoStabile/numasec.git

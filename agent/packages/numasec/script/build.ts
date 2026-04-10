@@ -258,8 +258,11 @@ for (const item of targets) {
       {
         name,
         version: Script.version,
+        description: "Platform binary for numasec",
+        license: "MIT",
         os: [item.os],
         cpu: [item.arch],
+        files: ["bin/"],
       },
       null,
       2,
@@ -267,6 +270,50 @@ for (const item of targets) {
   )
   binaries[name] = Script.version
 }
+
+// Generate publishable main package (launcher + optionalDependencies)
+await $`mkdir -p dist/numasec/bin`
+await $`cp ${path.join(dir, "bin/numasec")} dist/numasec/bin/numasec`
+await Bun.file("dist/numasec/package.json").write(
+  JSON.stringify(
+    {
+      name: "numasec",
+      version: Script.version,
+      description: "AI-powered penetration testing agent. Like Claude Code, but for security.",
+      license: "MIT",
+      keywords: ["security", "pentesting", "ai", "agent", "vulnerability-scanner", "owasp"],
+      author: "Francesco Stabile",
+      homepage: "https://github.com/FrancescoStabile/numasec",
+      repository: { type: "git", url: "git+https://github.com/FrancescoStabile/numasec.git" },
+      bugs: { url: "https://github.com/FrancescoStabile/numasec/issues" },
+      bin: { numasec: "./bin/numasec" },
+      files: ["bin/"],
+      optionalDependencies: Object.fromEntries(Object.entries(binaries).map(([k, v]) => [k, v])),
+    },
+    null,
+    2,
+  ),
+)
+await Bun.file("dist/numasec/README.md").write(
+  [
+    "# numasec",
+    "",
+    "AI-powered penetration testing agent. Like Claude Code, but for security.",
+    "",
+    "## Install",
+    "",
+    "```bash",
+    "npm install -g numasec",
+    "numasec",
+    "```",
+    "",
+    "## Documentation",
+    "",
+    "https://github.com/FrancescoStabile/numasec",
+    "",
+  ].join("\n"),
+)
+console.log(`Generated publishable main package: numasec@${Script.version}`)
 
 if (Script.release) {
   for (const key of Object.keys(binaries)) {
