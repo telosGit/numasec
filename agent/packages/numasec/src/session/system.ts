@@ -42,9 +42,9 @@ export namespace SystemPrompt {
         `  Platform: ${process.platform}`,
         `  Today's date: ${new Date().toDateString()}`,
         `  Mode: penetration testing`,
-        `  Engine: numasec security scanner engine (Python)`,
-        `  Knowledge base: 34 YAML templates (detection, exploitation, post-exploitation, remediation)`,
-        `  Scanner count: 30+ vulnerability scanners`,
+        `  Engine: numasec native security scanner engine (TypeScript)`,
+        `  Knowledge base: 35 YAML templates (detection, exploitation, post-exploitation, remediation)`,
+        `  Scanner count: 19 security tools`,
         `</env>`,
       ].join("\n"),
     ]

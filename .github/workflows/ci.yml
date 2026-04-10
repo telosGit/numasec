@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, numasec-agent]
+    branches: [main, huge-refactor]
   pull_request:
     branches: [main]
 
@@ -11,45 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  python-lint:
-    name: Python Lint & Format
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: pip install ruff
-      - run: ruff check numasec/
-      - run: ruff format --check numasec/
-
-  python-typecheck:
-    name: Python Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: pip install -e ".[all]"
-      - run: mypy numasec/
-
-  python-test:
-    name: Python Tests
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12", "3.13"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[all]"
-      - run: pytest tests/ -v -m "not slow and not benchmark" --tb=short
-      - run: pytest --cov=numasec tests/ -m "not slow and not benchmark" --cov-report=term-missing
-        if: matrix.python-version == '3.11'
-
   ts-typecheck:
     name: TypeScript Type Check
     runs-on: ubuntu-latest
@@ -62,7 +23,7 @@ jobs:
       - run: bun install --frozen-lockfile
         working-directory: agent
       - run: bun run typecheck
-        working-directory: agent/packages/numasec
+        working-directory: agent
 
   ts-test:
     name: TypeScript Tests
@@ -77,31 +38,3 @@ jobs:
         working-directory: agent
       - run: bun test --timeout 30000
         working-directory: agent/packages/numasec
-
-  bridge-validate:
-    name: Validate MCP Bridge
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.11"
-      - run: pip install -e ".[mcp]"
-      - run: |
-          # Verify the Python MCP server starts and exposes tools
-          python -c "
-          from numasec.mcp.server import create_mcp_server
-          mcp = create_mcp_server()
-          print('MCP server created successfully')
-          "
-      - run: |
-          # Verify TS tool definitions import without error
-          cd agent && bun install --frozen-lockfile
-          cd packages/numasec && bun run -e "
-          import './src/tool/registry.ts';
-          console.log('Tool registry loaded successfully');
-          "

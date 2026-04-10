@@ -1,33 +1,10 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-dist/
-build/
-.eggs/
-*.egg
-
-# Virtual environments
-.venv/
-venv/
-env/
-
 # Environment
 .env
-
-# Testing & coverage
-*.log
-.mypy_cache/
-.ruff_cache/
-.pytest_cache/
-htmlcov/
-.coverage
-coverage.xml
 
 # Generated artifacts
 *.sarif
 *.kbpack
+*.log
 
 # Local / editor
 .sentrysec/
@@ -55,10 +32,5 @@ sessions.db
 package.json
 docs/ROADMAP.md
 
-# TUI binary (downloaded by install.sh)
-bin/numasec-tui
-bin/.tui-version
-
-# Local dev install script
-install-local.sh
+# Local dev
 hardening/

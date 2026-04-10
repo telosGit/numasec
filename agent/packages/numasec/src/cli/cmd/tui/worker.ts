@@ -110,8 +110,7 @@ const startEventStream = (input: { directory: string; workspaceID?: string }) =>
 
 startEventStream({ directory: process.cwd() })
 
-// Register internal Python MCP server for security tools.
-// Fire-and-forget: runs inside Instance.provide so connectLocal() can access Instance.directory.
+// Initialize security context.
 // The startEventStream above creates and caches the Instance; we reuse it here.
 ;(async () => {
   try {
@@ -119,12 +118,11 @@ startEventStream({ directory: process.cwd() })
       directory: process.cwd(),
       init: InstanceBootstrap,
       fn: async () => {
-        const { registerInternalServer } = await import("@/bridge/internal")
-        await registerInternalServer()
+        // Security tools are now native TypeScript — no Python bridge needed
       },
     })
   } catch (error) {
-    Log.Default.error("failed to register internal MCP server", {
+    Log.Default.error("failed to initialize worker", {
       error: error instanceof Error ? error.message : error,
     })
   }
@@ -156,13 +154,11 @@ export const rpc = {
   },
   async server(input: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
     if (server) await server.stop(true)
-    // Register internal Python MCP server inside Instance context
-    // (connectLocal needs Instance.directory for cwd)
+    // Security tools registered natively — no external server needed
     await Instance.provide({
       directory: process.cwd(),
       fn: async () => {
-        const { registerInternalServer } = await import("@/bridge/internal")
-        await registerInternalServer()
+        // Security tools are now native TypeScript — no Python bridge needed
       },
     })
     server = await Server.listen(input)
@@ -187,8 +183,6 @@ export const rpc = {
     Log.Default.info("worker shutting down")
     if (eventStream.abort) eventStream.abort.abort()
     await Instance.disposeAll()
-    const { shutdownInternalServer } = await import("@/bridge/internal")
-    await shutdownInternalServer()
     if (server) await server.stop(true)
   },
 }
