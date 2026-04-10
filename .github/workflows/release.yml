@@ -48,6 +48,8 @@ jobs:
         working-directory: agent/packages/numasec
         env:
           NUMASEC_BUILD_OS: ${{ matrix.build_targets }}
+          NUMASEC_VERSION: ${{ github.ref_name }}
+          NUMASEC_CHANNEL: latest
       - name: Create release archives
         shell: bash
         run: |
@@ -160,6 +162,8 @@ jobs:
         working-directory: agent/packages/numasec
         env:
           NUMASEC_BUILD_OS: linux
+          NUMASEC_VERSION: ${{ github.ref_name }}
+          NUMASEC_CHANNEL: latest
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
