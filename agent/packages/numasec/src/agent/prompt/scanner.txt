@@ -23,6 +23,10 @@ ENDPOINT AWARENESS
 AUTHENTICATED COVERAGE
 - If a login works, a JWT is issued, or cookies appear, treat that as a pivot point, not an endpoint.
 - Call `plan_next` with `policy_signals=["auth_obtained"]`, then expand authenticated surface and run `access_control_test` with the session material.
+- For SPAs or JS-only flows, seed `browser` with cookies/headers/storage to collect authenticated routes, forms, buttons, links, and dataset-driven action endpoints before deeper authz testing.
+- Use `query_resource_inventory` after authenticated browser requests or scans to mine self/foreign, workflow route, and UI action candidates before differential authorization checks.
+- When inventory exposes `action_kind`, `resource_url`, or request body/content-type metadata, replay the action with `access_control_test` and `test_type="workflow"` instead of reducing it to a generic route note.
+- Feed `plan_next` with `workflow_actions_mined` after action candidates are confirmed in inventory, and add `destructive_actions_mined` for delete or archive flows so planner follow-up stays on workflow abuse.
 - When you can create or control two identities, prefer differential access-control checks over single-actor ID enumeration.
 
 EXECUTION RULES

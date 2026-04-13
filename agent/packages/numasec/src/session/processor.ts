@@ -266,12 +266,13 @@ export namespace SessionProcessor {
                     usage: value.usage,
                     metadata: value.providerMetadata,
                   })
-                  input.assistantMessage.finish = value.finishReason
+                  const finish = value.finishReason ?? "unknown"
+                  input.assistantMessage.finish = finish
                   input.assistantMessage.cost += usage.cost
                   input.assistantMessage.tokens = usage.tokens
                   await Session.updatePart({
                     id: PartID.ascending(),
-                    reason: value.finishReason,
+                    reason: finish,
                     snapshot: await Snapshot.track(),
                     messageID: input.assistantMessage.id,
                     sessionID: input.assistantMessage.sessionID,

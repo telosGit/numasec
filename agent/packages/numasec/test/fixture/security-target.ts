@@ -8,6 +8,14 @@ type User = {
   password_hash: string
 }
 
+type Project = {
+  id: number
+  owner_id: number
+  tenant_id: string
+  name: string
+  state: string
+}
+
 function hash(value: string) {
   return createHash("md5").update(value).digest("hex")
 }
@@ -123,7 +131,9 @@ export interface SecurityTargetFixture {
 
 export function startSecurityTarget(): SecurityTargetFixture {
   const users = new Map<number, User>()
+  const projects = new Map<number, Project>()
   let next = 2
+  let nextProject = 2
   const admin = {
     id: 1,
     email: "admin@fixture.local",
@@ -132,6 +142,13 @@ export function startSecurityTarget(): SecurityTargetFixture {
     password_hash: hash("admin123!"),
   }
   users.set(admin.id, admin)
+  projects.set(1, {
+    id: 1,
+    owner_id: admin.id,
+    tenant_id: `tenant-${admin.id}`,
+    name: "admin-roadmap",
+    state: "draft",
+  })
 
   const server = Bun.serve({
     port: 0,
@@ -192,6 +209,71 @@ export function startSecurityTarget(): SecurityTargetFixture {
             status: 201,
           },
         )
+      }
+
+      if (path === "/api/Users" && req.method === "GET") {
+        const jwt = readBearer(req)
+        const data = parseToken(jwt)
+        if (!data) {
+          return Response.json(
+            {
+              status: "error",
+            },
+            { status: 401 },
+          )
+        }
+        return Response.json({
+          data: Array.from(users.values()).map((item) => ({
+            id: item.id,
+            email: item.email,
+            role: item.role,
+          })),
+        })
+      }
+
+      if (path === "/api/Projects" && req.method === "POST") {
+        const jwt = readBearer(req)
+        const data = parseToken(jwt)
+        if (!data?.id) {
+          return Response.json(
+            {
+              status: "error",
+            },
+            { status: 401 },
+          )
+        }
+        const body = await readJson(req)
+        const project = {
+          id: nextProject++,
+          owner_id: data.id,
+          tenant_id: `tenant-${data.id}`,
+          name: String(body.name ?? `project-${data.id}`),
+          state: String(body.state ?? "draft"),
+        }
+        projects.set(project.id, project)
+        return Response.json(
+          {
+            status: "success",
+            data: project,
+          },
+          { status: 201 },
+        )
+      }
+
+      if (path === "/api/Projects" && req.method === "GET") {
+        const jwt = readBearer(req)
+        const data = parseToken(jwt)
+        if (!data?.id) {
+          return Response.json(
+            {
+              status: "error",
+            },
+            { status: 401 },
+          )
+        }
+        return Response.json({
+          data: Array.from(projects.values()),
+        })
       }
 
       if (path === "/rest/user/login" && req.method === "POST") {
@@ -286,6 +368,69 @@ export function startSecurityTarget(): SecurityTargetFixture {
           id: user.id,
           email: user.email,
           role: user.role,
+        })
+      }
+
+      if (path.startsWith("/api/Projects/")) {
+        const jwt = readBearer(req)
+        const data = parseToken(jwt)
+        if (!data?.id) {
+          return Response.json(
+            {
+              status: "error",
+            },
+            { status: 401 },
+          )
+        }
+        const parts = path.split("/").filter(Boolean)
+        const tail = parts.at(-1) ?? ""
+        const action = parts.length > 3 ? tail : ""
+        const raw = action ? parts.at(-2) ?? "0" : tail
+        const id = Number(raw)
+        const project = projects.get(id)
+        if (!project) {
+          return Response.json(
+            {
+              status: "error",
+            },
+            { status: 404 },
+          )
+        }
+        if (action && req.method === "POST") {
+          if (action === "approve") project.state = "approved"
+          if (action === "claim") project.state = "claimed"
+          if (action === "close") project.state = "closed"
+          if (action === "complete") project.state = "completed"
+          if (action === "delete") {
+            projects.delete(project.id)
+            return Response.json({
+              status: "success",
+              data: {
+                id: project.id,
+                deleted: true,
+              },
+            })
+          }
+          if (action === "publish") project.state = "published"
+          if (action === "verify") project.state = "verified"
+          if (action === "activate") project.state = "active"
+          if (action === "archive") project.state = "archived"
+          projects.set(project.id, project)
+          return Response.json({
+            status: "success",
+            data: project,
+          })
+        }
+        if (req.method === "PUT" || req.method === "PATCH") {
+          const body = await readJson(req)
+          project.name = String(body.name ?? project.name)
+          project.state = String(body.state ?? project.state)
+          if (typeof body.owner_id === "number") project.owner_id = body.owner_id
+          if (typeof body.tenant_id === "string" && body.tenant_id) project.tenant_id = body.tenant_id
+          projects.set(project.id, project)
+        }
+        return Response.json({
+          data: project,
         })
       }
 

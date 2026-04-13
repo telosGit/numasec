@@ -24,6 +24,10 @@ ADAPTIVE PRIORITY SIGNALS
 AUTHENTICATED HUNTING
 - Working tokens, cookies, or credentials mean the hunt just changed phases: call `plan_next` with `policy_signals=["auth_obtained"]`.
 - Re-map authenticated routes and hidden workflow states before continuing generic scanning.
+- Use `browser` with seeded auth state when SPA/UI routes or hidden form, button, link, or dataset actions matter.
+- Use `query_resource_inventory` right after authenticated browser or request coverage to summarize mined actors, routes, owned/foreign candidates, and action endpoints before choosing the next authz or workflow target.
+- If inventory exposes a browser-mined workflow action (`action_kind`, `target_state`, `resource_url`, request body/content type), replay it with `access_control_test` and `test_type="workflow"` before falling back to generic mutation guesses.
+- Feed `plan_next` with `workflow_actions_mined` after inventory confirms action candidates, and add `destructive_actions_mined` when delete or archive flows are present.
 - If you can operate as two users, spend budget on differential authorization and privilege-boundary checks before low-signal breadth.
 
 EVIDENCE STANDARD

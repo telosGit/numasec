@@ -24,6 +24,85 @@ function verificationControl(row: (typeof EvidenceNodeTable)["$inferSelect"]): s
   return "neutral"
 }
 
+function collectText(input: unknown, out: string[]) {
+  if (typeof input === "string") {
+    out.push(input)
+    return
+  }
+  if (!input || typeof input !== "object") return
+  if (Array.isArray(input)) {
+    for (const item of input) collectText(item, out)
+    return
+  }
+  const value = input as Record<string, unknown>
+  for (const key of Object.keys(value)) {
+    collectText(value[key], out)
+  }
+}
+
+function strings(row: (typeof EvidenceNodeTable)["$inferSelect"]) {
+  const out: string[] = []
+  collectText(row.payload, out)
+  return out
+}
+
+function supportRows(
+  row: (typeof EvidenceNodeTable)["$inferSelect"],
+  map: Map<string, (typeof EvidenceNodeTable)["$inferSelect"]>,
+  edges: Array<(typeof EvidenceEdgeTable)["$inferSelect"]>,
+) {
+  const out = new Map<string, (typeof EvidenceNodeTable)["$inferSelect"]>()
+  for (const edge of edges) {
+    if (edge.to_node_id !== row.id) continue
+    if (edge.relation !== "supports") continue
+    const item = map.get(edge.from_node_id)
+    if (!item) continue
+    out.set(item.id, item)
+  }
+  const payload = readPayload(row.payload)
+  const refs = Array.isArray(payload.evidence_refs) ? payload.evidence_refs : []
+  for (const item of refs) {
+    if (typeof item !== "string") continue
+    const node = map.get(item)
+    if (!node) continue
+    out.set(node.id, node)
+  }
+  return Array.from(out.values())
+}
+
+function targetText(
+  row: (typeof EvidenceNodeTable)["$inferSelect"],
+  map: Map<string, (typeof EvidenceNodeTable)["$inferSelect"]>,
+  edges: Array<(typeof EvidenceEdgeTable)["$inferSelect"]>,
+) {
+  const out = strings(row)
+  for (const item of supportRows(row, map, edges)) {
+    out.push(...strings(item))
+  }
+  return out.join("\n").toLowerCase()
+}
+
+function narrow(
+  list: Array<(typeof EvidenceNodeTable)["$inferSelect"]>,
+  map: Map<string, (typeof EvidenceNodeTable)["$inferSelect"]>,
+  edges: Array<(typeof EvidenceEdgeTable)["$inferSelect"]>,
+  target: {
+    url: string
+    method: string
+  },
+) {
+  if (list.length <= 1) return list
+  if (!target.url && !target.method) return list
+  const out = list.filter((item) => {
+    const text = targetText(item, map, edges)
+    if (target.url && !text.includes(target.url)) return false
+    if (target.method && !text.includes(target.method)) return false
+    return true
+  })
+  if (out.length > 0) return out
+  return list
+}
+
 const DESCRIPTION = `Confirm a finding in one shot from recent evidence.
 Auto-selects verification/control/impact evidence when not explicitly provided, then delegates to upsert_finding.`
 
@@ -65,6 +144,12 @@ export const ConfirmFindingTool = Tool.define("confirm_finding", {
         .where(eq(EvidenceEdgeTable.session_id, ctx.sessionID))
         .all(),
     )
+    const map = new Map<string, (typeof EvidenceNodeTable)["$inferSelect"]>(rows.map((item) => [item.id, item]))
+    const hypothesis = map.get(params.hypothesis_id)
+    const target = {
+      url: String(params.url || readPayload(hypothesis?.payload).asset_ref || "").toLowerCase(),
+      method: String(params.method ?? "").toLowerCase(),
+    }
 
     const known = new Set<string>([params.hypothesis_id])
     const queue: Array<{ id: string; depth: number }> = [{ id: params.hypothesis_id, depth: 0 }]
@@ -83,21 +168,33 @@ export const ConfirmFindingTool = Tool.define("confirm_finding", {
         })
       }
     }
-    const recent = rows.filter((row) => row.status === "confirmed").slice(0, params.lookback_limit ?? 200)
+    const recent = rows.slice(0, params.lookback_limit ?? 200)
+    const verified = recent.filter((row) => row.status === "confirmed")
     const scoped = recent.filter((row) => known.has(row.id))
+    const scopedVerified = scoped.filter((row) => row.status === "confirmed")
 
     const evidence = Array.from(new Set(params.evidence_refs ?? []))
     const negative = Array.from(new Set(params.negative_control_refs ?? []))
     const impact = Array.from(new Set(params.impact_refs ?? []))
 
     if (evidence.length === 0) {
-      const candidates = scoped.filter((item) => item.type === "verification" && verificationPassed(item) && verificationControl(item) !== "negative")
+      const candidates = narrow(
+        scopedVerified.filter((item) => item.type === "verification" && verificationPassed(item) && verificationControl(item) !== "negative"),
+        map,
+        edges,
+        target,
+      )
       if (candidates.length === 1) evidence.push(candidates[0]!.id)
       if (candidates.length > 1) {
         throw new Error(`confirm_finding found multiple positive verification candidates in hypothesis scope: ${candidates.map((item) => item.id).join(", ")}. Pass evidence_refs explicitly.`)
       }
       if (candidates.length === 0) {
-        const fallback = recent.filter((item) => item.type === "verification" && verificationPassed(item) && verificationControl(item) !== "negative")
+        const fallback = narrow(
+          verified.filter((item) => item.type === "verification" && verificationPassed(item) && verificationControl(item) !== "negative"),
+          map,
+          edges,
+          target,
+        )
         if (fallback.length === 1) evidence.push(fallback[0]!.id)
         if (fallback.length > 1) {
           throw new Error(`confirm_finding found multiple positive verification candidates in session scope: ${fallback.map((item) => item.id).join(", ")}. Pass evidence_refs explicitly.`)
@@ -105,13 +202,23 @@ export const ConfirmFindingTool = Tool.define("confirm_finding", {
       }
     }
     if (negative.length === 0) {
-      const candidates = scoped.filter((item) => item.type === "verification" && verificationPassed(item) && verificationControl(item) === "negative")
+      const candidates = narrow(
+        scopedVerified.filter((item) => item.type === "verification" && verificationPassed(item) && verificationControl(item) === "negative"),
+        map,
+        edges,
+        target,
+      )
       if (candidates.length === 1) negative.push(candidates[0]!.id)
       if (candidates.length > 1) {
         throw new Error(`confirm_finding found multiple negative control candidates in hypothesis scope: ${candidates.map((item) => item.id).join(", ")}. Pass negative_control_refs explicitly.`)
       }
       if (candidates.length === 0) {
-        const fallback = recent.filter((item) => item.type === "verification" && verificationPassed(item) && verificationControl(item) === "negative")
+        const fallback = narrow(
+          verified.filter((item) => item.type === "verification" && verificationPassed(item) && verificationControl(item) === "negative"),
+          map,
+          edges,
+          target,
+        )
         if (fallback.length === 1) negative.push(fallback[0]!.id)
         if (fallback.length > 1) {
           throw new Error(`confirm_finding found multiple negative control candidates in session scope: ${fallback.map((item) => item.id).join(", ")}. Pass negative_control_refs explicitly.`)
@@ -119,10 +226,30 @@ export const ConfirmFindingTool = Tool.define("confirm_finding", {
       }
     }
     if (impact.length === 0) {
-      const candidates = scoped.filter((item) => item.type === "artifact" || item.type === "observation")
-      if (candidates.length === 1) impact.push(candidates[0]!.id)
-      if (candidates.length === 0) {
-        const fallback = recent.filter((item) => item.type === "artifact" || item.type === "observation")
+      for (const item of evidence) {
+        const row = map.get(item)
+        if (!row) continue
+        for (const ref of supportRows(row, map, edges)) {
+          if (ref.type !== "artifact" && ref.type !== "observation") continue
+          impact.push(ref.id)
+        }
+      }
+      if (impact.length === 0) {
+        const candidates = narrow(
+          scoped.filter((item) => item.type === "artifact" || item.type === "observation"),
+          map,
+          edges,
+          target,
+        )
+        if (candidates.length === 1) impact.push(candidates[0]!.id)
+      }
+      if (impact.length === 0) {
+        const fallback = narrow(
+          recent.filter((item) => item.type === "artifact" || item.type === "observation"),
+          map,
+          edges,
+          target,
+        )
         if (fallback.length === 1) impact.push(fallback[0]!.id)
       }
     }

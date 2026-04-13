@@ -154,4 +154,41 @@ describe("phase zero floor regressions", () => {
     expect(verified.some((item) => item.family === "sql_injection" && item.title.toLowerCase().includes("authentication success"))).toBe(true)
     expect(verified.some((item) => item.family === "error_disclosure")).toBe(true)
   })
+
+  test("projector does not promote SQLi auth bypass on successful login with harmless apostrophe text", async () => {
+    const sessionID = "sess-phase0-floor-legit-login" as SessionID
+    seedSession(sessionID)
+
+    const out = await runTool(
+      HttpRequestTool,
+      {
+        url: `${app.baseUrl}/rest/user/login`,
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          email: app.admin.email,
+          password: app.admin.password,
+          note: "owner's profile",
+        }),
+      },
+      sessionID,
+    )
+
+    expect(out.output).toContain("HTTP 200")
+
+    await runTool(ProjectFindingsTool, {}, sessionID)
+
+    const rows = Database.use((db) =>
+      db
+        .select()
+        .from(FindingTable)
+        .where(eq(FindingTable.session_id, sessionID))
+        .all(),
+    )
+
+    const verified = rows.filter((item) => item.tool_used === "finding_projector" && item.state === "verified")
+    expect(verified.some((item) => item.family === "sql_injection" && item.title.toLowerCase().includes("authentication success"))).toBe(false)
+  })
 })

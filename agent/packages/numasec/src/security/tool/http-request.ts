@@ -7,11 +7,26 @@
 
 import z from "zod"
 import { Tool } from "../../tool/tool"
-import { httpRequest } from "../http-client"
+import { inventoryCandidates } from "../resource-inference"
+import {
+  actorIdentityFromMaterial,
+  actorSessionRequest,
+  httpAuthMaterial,
+  mergeActorSession,
+} from "../runtime/actor-session-store"
+import {
+  failureObservation,
+  recoveryObservation,
+} from "../runtime/execution-failure"
+import { executeHttpWithRecovery } from "../runtime/http-execution"
 import { makeToolResultEnvelope } from "./result-envelope"
 
 function shell(value: string) {
   return value.replace(/'/g, "'\\''")
+}
+
+function slug(value: string) {
+  return value.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase()
 }
 
 function replay(input: {
@@ -71,6 +86,8 @@ export const HttpRequestTool = Tool.define("http_request", {
     headers: z.record(z.string(), z.string()).optional().describe("Request headers as key-value pairs"),
     body: z.string().optional().describe("Request body (for POST/PUT/PATCH)"),
     cookies: z.string().optional().describe("Cookie header value"),
+    actor_session_id: z.string().optional().describe("Optional shared actor session ID for automatic auth hydration"),
+    actor_label: z.string().optional().describe("Optional shared actor label used to derive actor_session_id when omitted"),
     timeout: z.number().optional().describe("Timeout in milliseconds (default 15000)"),
     follow_redirects: z.boolean().optional().describe("Follow redirects (default true)"),
   }),
@@ -82,14 +99,49 @@ export const HttpRequestTool = Tool.define("http_request", {
       metadata: { url: params.url, method: params.method } as Record<string, any>,
     })
 
-    const response = await httpRequest(params.url, {
-      method: params.method,
-      headers: params.headers,
-      body: params.body,
-      cookies: params.cookies,
-      timeout: params.timeout,
-      followRedirects: params.follow_redirects,
+    const seeded = await mergeActorSession({
+      sessionID: ctx.sessionID,
+      actorSessionID: params.actor_session_id,
+      actorLabel: params.actor_label,
+      material: httpAuthMaterial({
+        actorLabel: params.actor_label,
+        url: params.url,
+        requestHeaders: params.headers,
+        requestCookies: params.cookies,
+      }),
     })
+    const auth = actorSessionRequest(seeded, params.headers, params.cookies)
+    const execution = await executeHttpWithRecovery({
+      sessionID: ctx.sessionID,
+      toolName: "http_request",
+      action: params.method,
+      actorSessionID: seeded.actorSessionID,
+      url: params.url,
+      request: {
+        method: params.method,
+        headers: auth.headers,
+        body: params.body,
+        cookies: auth.cookies || undefined,
+        timeout: params.timeout,
+        followRedirects: params.follow_redirects,
+      },
+    })
+    const response = execution.response
+    const stored = await mergeActorSession({
+      sessionID: ctx.sessionID,
+      actorSessionID: seeded.actorSessionID,
+      actorLabel: seeded.actorLabel,
+      material: httpAuthMaterial({
+        actorLabel: seeded.actorLabel,
+        url: response.url,
+        requestHeaders: auth.headers,
+        requestCookies: auth.cookies,
+        responseHeaders: response.headers,
+        responseBody: response.body,
+        setCookies: response.setCookies,
+      }),
+    })
+    const actor = actorIdentityFromMaterial(stored)
 
     const headerLines = Object.entries(response.headers)
       .map(([k, v]) => `${k}: ${v}`)
@@ -103,6 +155,9 @@ export const HttpRequestTool = Tool.define("http_request", {
       `HTTP ${response.status} ${response.statusText}`,
       `URL: ${response.url}`,
       `Elapsed: ${response.elapsed}ms`,
+      execution.profile ? `Execution profile: ${execution.profile.status} (pacing=${execution.profile.pacing_ms}ms jitter=${execution.profile.jitter_ms}ms retry_budget=${execution.profile.retry_budget})` : "",
+      execution.failure ? `Failure: ${execution.failure.code} (${execution.failure.message})` : "",
+      execution.recovery ? `Recovery: ${execution.recovery.strategy} after ${execution.recovery.attempts} attempt(s)` : "",
       response.redirectChain.length > 0 ? `Redirect chain: ${response.redirectChain.join(" → ")} → ${response.url}` : "",
       "",
       "── Response Headers ──",
@@ -121,15 +176,16 @@ export const HttpRequestTool = Tool.define("http_request", {
         request: {
           url: params.url,
           method: params.method,
-          headers: params.headers ?? {},
+          headers: auth.headers,
           body: params.body ?? "",
-          cookies: params.cookies ?? "",
+          cookies: auth.cookies ?? "",
         },
         response: {
           url: response.url,
           status: response.status,
           status_text: response.statusText,
           headers: response.headers,
+          set_cookies: response.setCookies,
           body: response.body,
           elapsed: response.elapsed,
           redirect_chain: response.redirectChain,
@@ -137,12 +193,59 @@ export const HttpRequestTool = Tool.define("http_request", {
         replay: replay({
           url: params.url,
           method: params.method,
-          headers: params.headers,
+          headers: auth.headers,
           body: params.body,
-          cookies: params.cookies,
+          cookies: auth.cookies,
         }),
       },
     ]
+
+    const observations: Record<string, any>[] = []
+    if (execution.failure) observations.push(failureObservation(execution.failure))
+    if (execution.recovery) observations.push(recoveryObservation(execution.recovery))
+    let actorKey = ""
+    if (actor.id || actor.email || actor.role) {
+      actorKey = `actor-${slug(actor.email || actor.id || actor.label)}`
+      observations.push({
+        key: actorKey,
+        family: "actor_inventory",
+        kind: "observed_actor",
+        actor_label: actor.label,
+        actor_id: actor.id,
+        actor_email: actor.email,
+        actor_role: actor.role,
+        privileged: actor.privileged,
+        source: actor.source,
+        actor_session_id: stored.actorSessionID,
+        url: params.url,
+        method: params.method,
+      })
+    }
+    const candidates = inventoryCandidates(response.body, actor.id || actor.email || actor.role ? actor : undefined).slice(0, 20)
+    let index = 0
+    for (const item of candidates) {
+      observations.push({
+        key: `resource-${slug(new URL(response.url).pathname || "root")}-${slug(item.id || item.email || item.owner || item.tenant || String(index++))}-${item.exposure}`,
+        family: "resource_inventory",
+        kind: "candidate",
+        url: response.url,
+        method: params.method,
+        source_kind: item.source,
+        actor_id: actor.id,
+        actor_email: actor.email,
+        actor_role: actor.role,
+        actor_session_id: stored.actorSessionID,
+        resource_id: item.id,
+        resource_email: item.email,
+        owner_id: item.owner,
+        tenant_id: item.tenant,
+        creator_id: item.creator,
+        resource_role: item.role,
+        resource_state: item.state,
+        exposure: item.exposure,
+        parent_key: actorKey || undefined,
+      })
+    }
 
     const verifications: Record<string, any>[] = []
     const lower = response.body.toLowerCase()
@@ -256,17 +359,32 @@ export const HttpRequestTool = Tool.define("http_request", {
         elapsed: response.elapsed,
         contentLength: response.body.length,
         redirects: response.redirectChain.length,
-      },
+        actorSessionID: stored.actorSessionID,
+        failureCode: execution.failure?.code,
+        recoveryAttempts: execution.recovery?.attempts ?? 0,
+        targetProfileStatus: execution.profile?.status,
+        },
       envelope: makeToolResultEnvelope({
-        status: "ok",
+        status: execution.failure ? (execution.failure.retryable ? "retryable_error" : "inconclusive") : "ok",
         artifacts,
+        observations,
         verifications,
         metrics: {
           status: response.status,
           elapsed_ms: response.elapsed,
           content_length: response.body.length,
           redirects: response.redirectChain.length,
+          inventory_candidates: candidates.length,
+          recovery_attempts: execution.recovery?.attempts ?? 0,
+          pacing_ms: execution.profile?.pacing_ms ?? 0,
+          retry_budget: execution.profile?.retry_budget ?? 0,
         },
+        error: execution.failure
+          ? {
+              code: execution.failure.code,
+              message: execution.failure.message,
+            }
+          : undefined,
       }),
       output,
     }

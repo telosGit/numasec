@@ -108,6 +108,26 @@ function basePart(messageID: string, id: string) {
 }
 
 describe("session.message-v2.toModelMessage", () => {
+  test("defaults missing step-finish reason to unknown", () => {
+    const part = MessageV2.StepFinishPart.parse({
+      ...basePart("msg-step-finish", "prt-step-finish"),
+      type: "step-finish",
+      cost: 0,
+      tokens: {
+        total: 1,
+        input: 1,
+        output: 0,
+        reasoning: 0,
+        cache: {
+          read: 0,
+          write: 0,
+        },
+      },
+    })
+
+    expect(part.reason).toBe("unknown")
+  })
+
   test("filters out messages with no parts", async () => {
     const input: MessageV2.WithParts[] = [
       {

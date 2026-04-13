@@ -15,6 +15,7 @@ export { VerifyAssertionTool } from "./tool/verify-assertion"
 export { RecordEvidenceTool } from "./tool/record-evidence"
 export { LinkEvidenceTool } from "./tool/link-evidence"
 export { QueryGraphTool } from "./tool/query-graph"
+export { QueryResourceInventoryTool } from "./tool/query-resource-inventory"
 export { ObserveSurfaceTool } from "./tool/observe-surface"
 export { UpsertHypothesisTool } from "./tool/upsert-hypothesis"
 export { UpsertFindingTool } from "./tool/upsert-finding"
@@ -93,6 +94,7 @@ import { VerifyAssertionTool } from "./tool/verify-assertion"
 import { RecordEvidenceTool } from "./tool/record-evidence"
 import { LinkEvidenceTool } from "./tool/link-evidence"
 import { QueryGraphTool } from "./tool/query-graph"
+import { QueryResourceInventoryTool } from "./tool/query-resource-inventory"
 import { ObserveSurfaceTool } from "./tool/observe-surface"
 import { UpsertHypothesisTool } from "./tool/upsert-hypothesis"
 import { UpsertFindingTool } from "./tool/upsert-finding"
@@ -132,6 +134,7 @@ export const SecurityTools = [
   RecordEvidenceTool,
   LinkEvidenceTool,
   QueryGraphTool,
+  QueryResourceInventoryTool,
   ObserveSurfaceTool,
   UpsertHypothesisTool,
   UpsertFindingTool,

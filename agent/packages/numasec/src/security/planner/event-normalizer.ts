@@ -1,4 +1,4 @@
-import type { PlannerEvent, PlannerState } from "./kernel"
+import type { PlannerEvent, PlannerSignal, PlannerState } from "./kernel"
 
 type Scope = "quick" | "standard" | "deep"
 
@@ -44,6 +44,16 @@ const ALIAS = new Map<string, PlannerEvent["type"]>([
   ["hypothesis_invalidated", "hypothesis_invalidated"],
   ["invalidated", "hypothesis_invalidated"],
   ["hypothesis_rejected", "hypothesis_invalidated"],
+  ["surface_observed", "note_recorded"],
+  ["surface_mapped", "note_recorded"],
+  ["evidence_collected", "note_recorded"],
+  ["evidence_logged", "note_recorded"],
+  ["auth_obtained", "note_recorded"],
+  ["authenticated", "note_recorded"],
+  ["token_obtained", "note_recorded"],
+  ["credentials_obtained", "note_recorded"],
+  ["login_success", "note_recorded"],
+  ["note", "note_recorded"],
   ["reset", "reset"],
   ["restart", "reset"],
 ])
@@ -56,8 +66,8 @@ function stringValue(input: unknown): string {
 function boolValue(input: unknown): boolean | undefined {
   if (typeof input === "boolean") return input
   const value = stringValue(input).toLowerCase()
-  if (["true", "1", "yes", "ok", "pass", "passed"].includes(value)) return true
-  if (["false", "0", "no", "fail", "failed"].includes(value)) return false
+  if (["true", "1", "pass", "passed"].includes(value)) return true
+  if (["false", "0", "fail", "failed"].includes(value)) return false
   return
 }
 
@@ -110,6 +120,69 @@ function objectPayload(input: NormalizeInput): Record<string, unknown> {
   return {}
 }
 
+function collectText(input: unknown, out: string[]) {
+  if (typeof input === "string") {
+    out.push(input)
+    return
+  }
+  if (typeof input === "number" || typeof input === "boolean") {
+    out.push(String(input))
+    return
+  }
+  if (!input || typeof input !== "object") return
+  if (Array.isArray(input)) {
+    for (const item of input) collectText(item, out)
+    return
+  }
+  const value = input as Record<string, unknown>
+  for (const key of Object.keys(value)) {
+    collectText(value[key], out)
+  }
+}
+
+function workflowActionText(input: string) {
+  return /(workflow action|action candidate|approve action|approve endpoint|claim action|claim endpoint|publish action|publish endpoint|verify action|verify endpoint|archive action|archive endpoint|delete action|delete endpoint)/i.test(input)
+}
+
+function destructiveActionText(input: string) {
+  return /(destructive action|delete action|delete endpoint|archive action|archive endpoint|close action|close endpoint|remove action|remove endpoint)/i.test(input)
+}
+
+function inferSignals(raw: string, note: string, payload: Record<string, unknown>) {
+  const out = new Set<PlannerSignal>()
+  const push = (value: string) => {
+    const text = value.toLowerCase()
+    if (!text) return
+    if (text.includes("waf")) out.add("waf_detected")
+    if (/(auth|credential|login|token|cookie|session)/i.test(text)) out.add("auth_obtained")
+    if (/(escalat|privilege|admin|root)/i.test(text)) out.add("escalation_found")
+    if (/(^|[^a-z])spa([^a-z]|$)|single page|client route|javascript app/i.test(text)) out.add("spa_detected")
+    if (/(^|[^a-z])api([^a-z]|$)|\/api\/|graphql|rest endpoint/i.test(text)) out.add("api_app_detected")
+    if (workflowActionText(text)) out.add("workflow_actions_mined")
+    if (destructiveActionText(text)) out.add("destructive_actions_mined")
+  }
+  push(raw)
+  push(note)
+  const items: string[] = []
+  collectText(payload, items)
+  for (const item of items) push(item)
+  const bool = (value: unknown) => (typeof value === "boolean" ? value : undefined)
+  if (bool(payload.auth_obtained) === true) out.add("auth_obtained")
+  if (bool(payload.waf_detected) === true) out.add("waf_detected")
+  if (bool(payload.escalation_found) === true) out.add("escalation_found")
+  if (bool(payload.spa_detected) === true) out.add("spa_detected")
+  if (bool(payload.api_app_detected) === true) out.add("api_app_detected")
+  if (bool(payload.workflow_actions_mined) === true) out.add("workflow_actions_mined")
+  if (bool(payload.destructive_actions_mined) === true) out.add("destructive_actions_mined")
+  if (typeof payload.action_count === "number" && payload.action_count > 0) out.add("workflow_actions_mined")
+  const action = stringValue(payload.action_kind).toLowerCase()
+  if (action) out.add("workflow_actions_mined")
+  if (["delete", "archive", "close", "remove"].includes(action)) out.add("destructive_actions_mined")
+  const target = stringValue(payload.target_state).toLowerCase()
+  if (["deleted", "archived", "closed"].includes(target)) out.add("destructive_actions_mined")
+  return Array.from(out)
+}
+
 export function normalizePlannerEvent(input: NormalizeInput): NormalizeResult {
   const warnings: string[] = []
   const type = eventType(input)
@@ -134,6 +207,20 @@ export function normalizePlannerEvent(input: NormalizeInput): NormalizeResult {
       raw_type: type.raw,
       canonical_type: type.canonical,
       event: { type: "reset" },
+      warnings,
+    }
+  }
+
+  if (type.canonical === "note_recorded") {
+    const note = stringValue(payload.note) || input.event || stringValue(payload.summary) || type.raw
+    return {
+      raw_type: type.raw,
+      canonical_type: type.canonical,
+      event: {
+        type: "note_recorded",
+        note,
+        signals: inferSignals(type.raw, note, payload),
+      },
       warnings,
     }
   }

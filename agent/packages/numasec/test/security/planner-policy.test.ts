@@ -96,8 +96,10 @@ describe("planner policy", () => {
     })
 
     expect(policy.primary.primitive).toBe("observe_surface")
+    expect(policy.steps.some((item) => item.primitive === "query_resource_inventory")).toBe(true)
     expect(policy.steps.some((item) => item.primitive === "access_control_test")).toBe(true)
     expect(policy.steps.some((item) => item.primitive === "browser")).toBe(true)
+    expect(policy.steps.findIndex((item) => item.primitive === "browser")).toBeLessThan(policy.steps.findIndex((item) => item.primitive === "query_resource_inventory"))
   })
 
   test("reduces primitive queue when time budget is low", () => {
@@ -115,5 +117,47 @@ describe("planner policy", () => {
 
     expect(policy.steps.length).toBe(1)
     expect(policy.budget.primitive_budget).toBe(1)
+  })
+
+  test("uses carried kernel signals when explicit policy signals are omitted", () => {
+    let kernel = createPlannerKernel()
+    kernel = applyPlannerEvent(kernel, { type: "scope_set", target: "https://example.com", scope: "deep" })
+    kernel = applyPlannerEvent(kernel, { type: "hypothesis_upserted", hypothesis_id: "hyp-7", summary: "post-auth workflow" })
+    kernel = applyPlannerEvent(kernel, {
+      type: "note_recorded",
+      note: "Authentication token obtained",
+      signals: ["auth_obtained", "spa_detected"],
+    })
+
+    const policy = selectPlannerPrimitives(kernel, {
+      budget: {
+        primitive_budget: 4,
+        remaining_seconds: 1200,
+      },
+    })
+
+    expect(policy.steps.some((item) => item.primitive === "query_resource_inventory")).toBe(true)
+    expect(policy.steps.some((item) => item.primitive === "access_control_test")).toBe(true)
+    expect(policy.steps.some((item) => item.primitive === "browser")).toBe(true)
+  })
+
+  test("prioritizes mined destructive workflow actions in auth follow-up descriptions", () => {
+    let kernel = createPlannerKernel()
+    kernel = applyPlannerEvent(kernel, { type: "scope_set", target: "https://example.com", scope: "deep" })
+    kernel = applyPlannerEvent(kernel, { type: "hypothesis_upserted", hypothesis_id: "hyp-8", summary: "post-auth destructive workflow" })
+
+    const policy = selectPlannerPrimitives(kernel, {
+      signals: ["auth_obtained", "spa_detected", "workflow_actions_mined", "destructive_actions_mined"],
+      budget: {
+        primitive_budget: 4,
+        remaining_seconds: 1200,
+      },
+    })
+
+    const inventory = policy.steps.find((item) => item.primitive === "query_resource_inventory")
+    const access = policy.steps.find((item) => item.primitive === "access_control_test")
+    expect(inventory?.description.toLowerCase()).toContain("destructive workflow action")
+    expect(access?.description.toLowerCase()).toContain("destructive workflow actions")
+    expect(policy.steps.findIndex((item) => item.primitive === "query_resource_inventory")).toBeLessThan(policy.steps.findIndex((item) => item.primitive === "access_control_test"))
   })
 })

@@ -19,6 +19,8 @@
     "prepare": "effect-language-service patch || true",
     "typecheck": "tsgo --noEmit",
     "test": "bun test --timeout 30000",
+    "test:runtime": "bun run script/runtime-eval.ts",
+    "test:runtime-live": "bun run script/runtime-live.ts",
     "build": "bun run script/build.ts",
     "dev": "bun run --conditions=browser ./src/index.ts",
     "db": "bun drizzle-kit"
@@ -39,8 +41,8 @@
   "devDependencies": {
     "@babel/core": "7.28.4",
     "@effect/language-service": "0.79.0",
-    "@octokit/webhooks-types": "7.6.1",
     "@numasec/script": "workspace:*",
+    "@octokit/webhooks-types": "7.6.1",
     "@parcel/watcher-darwin-arm64": "2.5.1",
     "@parcel/watcher-darwin-x64": "2.5.1",
     "@parcel/watcher-linux-arm64-glibc": "2.5.1",
@@ -62,6 +64,7 @@
     "@typescript/native-preview": "catalog:",
     "drizzle-kit": "catalog:",
     "drizzle-orm": "catalog:",
+    "playwright": "1.59.1",
     "typescript": "catalog:",
     "vscode-languageserver-types": "3.17.5",
     "why-is-node-running": "3.2.2",

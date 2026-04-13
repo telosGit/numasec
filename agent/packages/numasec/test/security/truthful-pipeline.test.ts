@@ -55,6 +55,16 @@ describe("truthful security fixture", () => {
     expect(payload.data.password).toBeString()
     expect(payload.data.role).toBe("customer")
 
+    const list = await fetch(`${app.baseUrl}/api/Users`, {
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+    expect(list.status).toBe(200)
+    const listBody = await json(list)
+    expect(Array.isArray(listBody.data)).toBe(true)
+    expect(listBody.data.some((item: Record<string, any>) => item.email === app.admin.email)).toBe(true)
+
     const idor = await fetch(`${app.baseUrl}/api/Users/1`, {
       headers: {
         authorization: `Bearer ${token}`,

@@ -6,7 +6,11 @@
  */
 
 import { execSync } from "child_process"
+import { readFileSync } from "fs"
+import { createRequire } from "module"
 import { platform } from "os"
+
+const require = createRequire(import.meta.url)
 
 export interface ToolStatus {
   name: string
@@ -22,7 +26,7 @@ export interface Environment {
 }
 
 // Tools to probe, grouped by category
-const TOOL_LIST: { name: string; versionFlag?: string }[] = [
+const TOOL_LIST: { name: string; versionFlag?: string; moduleName?: string }[] = [
   // Recon
   { name: "nmap", versionFlag: "--version" },
   { name: "naabu", versionFlag: "-version" },
@@ -56,7 +60,7 @@ const TOOL_LIST: { name: string; versionFlag?: string }[] = [
   // Browser
   { name: "chromium" },
   { name: "google-chrome" },
-  { name: "playwright" },
+  { name: "playwright", moduleName: "playwright" },
 ]
 
 function which(name: string): string | undefined {
@@ -79,6 +83,31 @@ function getVersion(name: string, flag?: string): string | undefined {
   }
 }
 
+function modulePath(name: string): string | undefined {
+  try {
+    return require.resolve(`${name}/package.json`)
+  } catch {
+    try {
+      return require.resolve(name)
+    } catch {
+      return undefined
+    }
+  }
+}
+
+function moduleVersion(name: string): string | undefined {
+  const path = modulePath(name)
+  if (!path) return undefined
+  try {
+    const file = path.endsWith("package.json") ? path : require.resolve(`${name}/package.json`)
+    const json = JSON.parse(readFileSync(file, "utf-8")) as { version?: string }
+    if (typeof json.version !== "string") return undefined
+    return json.version
+  } catch {
+    return undefined
+  }
+}
+
 /** Detect available security tools and OS. */
 export function detectEnvironment(): Environment {
   const os = platform()
@@ -86,9 +115,9 @@ export function detectEnvironment(): Environment {
   const available: string[] = []
 
   for (const tool of TOOL_LIST) {
-    const path = which(tool.name)
+    const path = tool.moduleName ? modulePath(tool.moduleName) : which(tool.name)
     if (path) {
-      const version = getVersion(tool.name, tool.versionFlag)
+      const version = tool.moduleName ? moduleVersion(tool.moduleName) : getVersion(tool.name, tool.versionFlag)
       tools.push({ name: tool.name, available: true, path, version })
       available.push(version ? `${tool.name} ${version}` : tool.name)
     } else {

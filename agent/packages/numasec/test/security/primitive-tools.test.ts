@@ -6,7 +6,7 @@ import { ProjectID } from "../../src/project/schema"
 import { SessionTable } from "../../src/session/session.sql"
 import { Database, eq } from "../../src/storage/db"
 import { Global } from "../../src/global"
-import { EvidenceNodeTable } from "../../src/security/evidence.sql"
+import { EvidenceEdgeTable, EvidenceNodeTable } from "../../src/security/evidence.sql"
 import { FindingTable } from "../../src/security/security.sql"
 import { MutateInputTool } from "../../src/security/tool/mutate-input"
 import { ExtractObservationTool } from "../../src/security/tool/extract-observation"
@@ -442,6 +442,80 @@ describe("primitive tools", () => {
     expect(typeof (row?.payload as any).replay).toBe("string")
   })
 
+  test("record_evidence tolerates fenced payload_json and persists inline assertions", async () => {
+    const sessionID = "sess-primitive-record-assertions" as SessionID
+    seedSession(sessionID)
+
+    const hypothesis = await runTool(
+      UpsertHypothesisTool,
+      {
+        statement: "Account API exposes foreign data",
+        predicate: "cross-account account detail returns 200",
+        asset_ref: "https://example.com/api/accounts/1",
+      },
+      sessionID,
+    )
+
+    const out = await runTool(
+      RecordEvidenceTool,
+      {
+        type: "artifact",
+        payload_json: "```json\n{\"trace_id\":\"abc-123\",\"items\":[1,2]}\n```",
+        request: {
+          url: "https://example.com/api/accounts/1",
+          method: "GET",
+        },
+        response: {
+          status: 200,
+          body: "{\"id\":1,\"email\":\"victim@example.com\"}",
+        },
+        hypothesis_id: (hypothesis.metadata as any).nodeID,
+        assertions: [
+          {
+            typed: {
+              kind: "http_status",
+              equals: 200,
+            },
+            control: "positive",
+          },
+        ],
+      },
+      sessionID,
+    )
+
+    const nodeID = (out.metadata as any).id as string
+    const verificationIDs = (out.metadata as any).assertionVerificationIDs as string[]
+    expect(verificationIDs).toHaveLength(1)
+    const row = Database.use((db) =>
+      db
+        .select()
+        .from(EvidenceNodeTable)
+        .where(eq(EvidenceNodeTable.id, nodeID as any))
+        .get(),
+    )
+    expect((row?.payload as any).payload_json.trace_id).toBe("abc-123")
+    const verification = Database.use((db) =>
+      db
+        .select()
+        .from(EvidenceNodeTable)
+        .where(eq(EvidenceNodeTable.id, verificationIDs[0] as any))
+        .get(),
+    )
+    expect(verification?.type).toBe("verification")
+    expect(verification?.status).toBe("confirmed")
+    const edges = Database.use((db) =>
+      db
+        .select()
+        .from(EvidenceEdgeTable)
+        .where(eq(EvidenceEdgeTable.session_id, sessionID))
+        .all(),
+    )
+    expect(
+      edges.some((item) => item.from_node_id === (hypothesis.metadata as any).nodeID && item.to_node_id === verificationIDs[0] && item.relation === "verifies"),
+    ).toBe(true)
+    expect(edges.some((item) => item.from_node_id === nodeID && item.to_node_id === verificationIDs[0] && item.relation === "supports")).toBe(true)
+  })
+
   test("upsert_finding keeps high severity when assertion contract is complete", async () => {
     const sessionID = "sess-primitive-assertion-complete" as SessionID
     seedSession(sessionID)
@@ -741,5 +815,221 @@ describe("primitive tools", () => {
     expect((out.metadata as any).auto_selected.evidence_refs.length).toBeGreaterThan(0)
     expect((out.metadata as any).auto_selected.negative_control_refs.length).toBeGreaterThan(0)
     expect((out.metadata as any).auto_selected.impact_refs.length).toBeGreaterThan(0)
+  })
+
+  test("confirm_finding narrows noisy session candidates and reuses active support evidence as impact", async () => {
+    const sessionID = "sess-primitive-confirm-finding-scope" as SessionID
+    seedSession(sessionID)
+
+    const hypothesis = await runTool(
+      UpsertHypothesisTool,
+      {
+        statement: "Account detail API leaks foreign records",
+        predicate: "cross-account detail returns 200",
+        asset_ref: "https://example.com/api/accounts/1",
+      },
+      sessionID,
+    )
+    const hypothesisID = (hypothesis.metadata as any).nodeID as string
+
+    const positive = await runTool(
+      RecordEvidenceTool,
+      {
+        type: "artifact",
+        payload_text: "foreign account detail returned victim data",
+        request: {
+          url: "https://example.com/api/accounts/1",
+          method: "GET",
+        },
+        response: {
+          status: 200,
+          body: "{\"id\":1,\"email\":\"victim@example.com\"}",
+        },
+        hypothesis_id: hypothesisID,
+        assertions: [
+          {
+            typed: {
+              kind: "http_status",
+              equals: 200,
+            },
+            control: "positive",
+          },
+        ],
+      },
+      sessionID,
+    )
+    const negativeCase = await runTool(
+      RecordEvidenceTool,
+      {
+        type: "artifact",
+        payload_text: "control account request denied",
+        request: {
+          url: "https://example.com/api/accounts/1",
+          method: "GET",
+        },
+        response: {
+          status: 403,
+          body: "{\"error\":\"forbidden\"}",
+        },
+        hypothesis_id: hypothesisID,
+        assertions: [
+          {
+            typed: {
+              kind: "http_status",
+              equals: 200,
+            },
+            control: "negative",
+          },
+        ],
+      },
+      sessionID,
+    )
+    await runTool(
+      RecordEvidenceTool,
+      {
+        type: "artifact",
+        payload_text: "unrelated authenticated request succeeded",
+        request: {
+          url: "https://example.com/api/other/2",
+          method: "GET",
+        },
+        response: {
+          status: 200,
+          body: "{\"ok\":true}",
+        },
+        assertions: [
+          {
+            typed: {
+              kind: "http_status",
+              equals: 200,
+            },
+            control: "positive",
+          },
+        ],
+      },
+      sessionID,
+    )
+    await runTool(
+      RecordEvidenceTool,
+      {
+        type: "artifact",
+        payload_text: "unrelated control request denied",
+        request: {
+          url: "https://example.com/api/other/2",
+          method: "GET",
+        },
+        response: {
+          status: 403,
+          body: "{\"error\":\"blocked\"}",
+        },
+        assertions: [
+          {
+            typed: {
+              kind: "http_status",
+              equals: 200,
+            },
+            control: "negative",
+          },
+        ],
+      },
+      sessionID,
+    )
+
+    const out = await runTool(
+      ConfirmFindingTool,
+      {
+        hypothesis_id: hypothesisID,
+        title: "IDOR in account detail API",
+        severity: "high",
+        impact: "Cross-account data exposure",
+        url: "https://example.com/api/accounts/1",
+        method: "GET",
+      },
+      sessionID,
+    )
+
+    expect((out.metadata as any).findingID).toContain("SSEC-")
+    expect((out.metadata as any).auto_selected.evidence_refs).toEqual((positive.metadata as any).assertionVerificationIDs)
+    expect((out.metadata as any).auto_selected.negative_control_refs).toEqual((negativeCase.metadata as any).assertionVerificationIDs)
+    expect((out.metadata as any).auto_selected.impact_refs).toContain((positive.metadata as any).id)
+  })
+
+  test("confirm_finding keeps high-severity findings provisional when negative control is missing", async () => {
+    const sessionID = "sess-primitive-confirm-finding-missing-control" as SessionID
+    seedSession(sessionID)
+
+    Database.use((db) =>
+      db
+        .insert(EvidenceNodeTable)
+        .values([
+          {
+            id: "ENOD-CONFIRM-MISS-POS" as any,
+            session_id: sessionID,
+            type: "verification",
+            fingerprint: "confirm-miss-pos",
+            payload: {
+              predicate: "foreign account detail returned 200",
+              passed: true,
+              control: "positive",
+            },
+            confidence: 0.9,
+            source_tool: "test",
+            status: "confirmed",
+          },
+          {
+            id: "ENOD-CONFIRM-MISS-IMPACT" as any,
+            session_id: sessionID,
+            type: "artifact",
+            fingerprint: "confirm-miss-impact",
+            payload: {
+              leaked_records: 3,
+              response: {
+                status: 200,
+                body: "{\"records\":3}",
+              },
+            },
+            confidence: 0.8,
+            source_tool: "test",
+            status: "confirmed",
+          },
+        ])
+        .run(),
+    )
+
+    const hypothesis = await runTool(
+      UpsertHypothesisTool,
+      {
+        statement: "Account detail API leaks foreign records",
+        predicate: "cross-account detail returns 200",
+      },
+      sessionID,
+    )
+
+    const out = await runTool(
+      ConfirmFindingTool,
+      {
+        hypothesis_id: (hypothesis.metadata as any).nodeID,
+        title: "IDOR in account detail API",
+        severity: "high",
+        impact: "Cross-account data exposure",
+        url: "https://example.com/api/accounts/1",
+        method: "GET",
+      },
+      sessionID,
+    )
+
+    expect((out.metadata as any).assertionContract.status).toBe("incomplete")
+    expect((out.metadata as any).assertionContract.missing).toContain("negative_control")
+
+    const row = Database.use((db) =>
+      db
+        .select()
+        .from(FindingTable)
+        .where(eq(FindingTable.id, ((out.metadata as any).findingID) as any))
+        .get(),
+    )
+
+    expect(row?.state).toBe("provisional")
+    expect(row?.confirmed).toBe(false)
   })
 })

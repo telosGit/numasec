@@ -2,6 +2,18 @@
 
 ---
 
+## [1.1.0] — Stateful Offensive Runtime
+
+- numasec now keeps its footing mid-run: browser sessions persist, actor state survives across steps, and the runtime can recover instead of falling apart after one bad navigation.
+- Browser and HTTP flows now share real working memory: cookies, tokens, headers, storage state, and auth material can move across tools instead of being rediscovered over and over.
+- The browser stack grew up from “click a page” into a replayable runtime: network traffic, actor sessions, execution attempts, target profiles, and resource inventory are now first-class runtime data.
+- The evidence/graph pipeline got stricter and more useful: better planner normalization, stronger finding evaluation, richer verification flow, and cleaner attack-path/report projection.
+- Added runtime validation tooling and a much larger regression suite covering auth fabric, browser recovery, execution failure taxonomy, target profile storage, and resource inventory.
+- `install.sh` is once again the single supported source installer, and the public README has been rewritten around the new positioning, runtime, benchmarks, and release story.
+- Hardened session handling for providers that omit finish reasons, which fixes the Claude Opus / Sonnet retry loop issue reported in the wild.
+
+---
+
 ## [1.0.5] — v2 Command/Tool UX Transition
 
 - Documented the canonical v2 slash command taxonomy:
@@ -86,6 +98,6 @@ The entire project has been rewritten from scratch. numasec is now a single Type
 ### Distribution
 
 - `npm install -g numasec` — platform-specific binary via optionalDependencies
-- `install.sh` — build from source, symlink to `~/.local/bin`
+- `install.sh` — build from source and install `numasec` into your local bin directory
 - Docker images on Docker Hub and GHCR
 - GitHub Releases with per-platform archives

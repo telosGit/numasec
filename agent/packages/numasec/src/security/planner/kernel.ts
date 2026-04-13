@@ -8,6 +8,14 @@ export type PlannerState =
   | "closed_negative"
 
 export type PlannerVerdict = "confirmed" | "rejected" | "inconclusive"
+export type PlannerSignal =
+  | "waf_detected"
+  | "auth_obtained"
+  | "escalation_found"
+  | "spa_detected"
+  | "api_app_detected"
+  | "workflow_actions_mined"
+  | "destructive_actions_mined"
 
 export type PlannerEvent =
   | {
@@ -40,6 +48,11 @@ export type PlannerEvent =
       reason: string
     }
   | {
+      type: "note_recorded"
+      note: string
+      signals?: PlannerSignal[]
+    }
+  | {
       type: "reset"
     }
 
@@ -51,6 +64,7 @@ export interface PlannerKernel {
   finding_id: string
   evidence_nodes: string[]
   notes: string[]
+  signals: PlannerSignal[]
   history: PlannerEvent[]
 }
 
@@ -70,6 +84,7 @@ export function createPlannerKernel(): PlannerKernel {
     finding_id: "",
     evidence_nodes: [],
     notes: [],
+    signals: [],
     history: [],
   }
 }
@@ -153,11 +168,28 @@ export function applyPlannerEvent(kernel: PlannerKernel, event: PlannerEvent): P
   }
 
   if (event.type === "hypothesis_invalidated") {
+    const notes = new Set(kernel.notes)
+    notes.add(event.reason)
     const next = {
       ...kernel,
       state: "closed_negative" as const,
-      notes: [...kernel.notes, event.reason],
+      notes: Array.from(notes),
       finding_id: "",
+    }
+    return withHistory(next, event)
+  }
+
+  if (event.type === "note_recorded") {
+    const notes = new Set(kernel.notes)
+    if (event.note) notes.add(event.note)
+    const signals = new Set(kernel.signals)
+    for (const item of event.signals ?? []) {
+      signals.add(item)
+    }
+    const next = {
+      ...kernel,
+      notes: Array.from(notes),
+      signals: Array.from(signals),
     }
     return withHistory(next, event)
   }

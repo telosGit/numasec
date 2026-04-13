@@ -27,6 +27,7 @@ export interface HttpResponse {
   status: number
   statusText: string
   headers: Record<string, string>
+  setCookies: string[]
   body: string
   url: string
   redirectChain: string[]
@@ -100,11 +101,18 @@ export async function httpRequest(
 
       const responseHeaders: Record<string, string> = {}
       response.headers.forEach((v, k) => { responseHeaders[k] = v })
+      const setCookies =
+        typeof (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie === "function"
+          ? (response.headers as Headers & { getSetCookie: () => string[] }).getSetCookie()
+          : response.headers.get("set-cookie")
+            ? [response.headers.get("set-cookie") ?? ""]
+            : []
 
       return {
         status: response.status,
         statusText: response.statusText,
         headers: responseHeaders,
+        setCookies,
         body: responseBody,
         url: currentUrl,
         redirectChain,
@@ -117,6 +125,7 @@ export async function httpRequest(
           status: 0,
           statusText: "Timeout",
           headers: {},
+          setCookies: [],
           body: "",
           url: currentUrl,
           redirectChain,
@@ -127,6 +136,7 @@ export async function httpRequest(
         status: 0,
         statusText: String(error),
         headers: {},
+        setCookies: [],
         body: "",
         url: currentUrl,
         redirectChain,
@@ -139,6 +149,7 @@ export async function httpRequest(
     status: 0,
     statusText: "Too many redirects",
     headers: {},
+    setCookies: [],
     body: "",
     url: currentUrl,
     redirectChain,

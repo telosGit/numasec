@@ -10,6 +10,7 @@ import {
   shouldPersistArtifact,
 } from "../artifact-store"
 import { makeToolResultEnvelope } from "./result-envelope"
+import { VerificationAssertionInput, VerifyAssertionTool } from "./verify-assertion"
 
 const DESCRIPTION = `Record or upsert one evidence node in the canonical graph.
 Use this primitive whenever an observation, artifact, hypothesis, or finding must be persisted.`
@@ -44,6 +45,48 @@ function replayFromRequest(input: {
   return parts.join(" ")
 }
 
+function trimFence(input: string) {
+  const value = input.trim()
+  const match = /^```[a-z0-9_-]*\s*([\s\S]*?)\s*```$/i.exec(value)
+  if (typeof match?.[1] === "string") return match[1].trim()
+  return value
+}
+
+function tryJson(input: string) {
+  try {
+    return {
+      ok: true,
+      value: JSON.parse(input),
+      error: "",
+    }
+  } catch (cause) {
+    return {
+      ok: false,
+      value: undefined,
+      error: String(cause),
+    }
+  }
+}
+
+function parseJson(input: string): unknown {
+  const value = trimFence(input)
+  const direct = tryJson(value)
+  if (direct.ok) return direct.value
+  const objectStart = value.indexOf("{")
+  const objectEnd = value.lastIndexOf("}")
+  if (objectStart >= 0 && objectEnd > objectStart) {
+    const inner = tryJson(value.slice(objectStart, objectEnd + 1))
+    if (inner.ok) return inner.value
+  }
+  const arrayStart = value.indexOf("[")
+  const arrayEnd = value.lastIndexOf("]")
+  if (arrayStart >= 0 && arrayEnd > arrayStart) {
+    const inner = tryJson(value.slice(arrayStart, arrayEnd + 1))
+    if (inner.ok) return inner.value
+  }
+  throw new Error(`record_evidence payload_json parse failed: ${direct.error || "invalid JSON input"}`)
+}
+
 function parsePayload(params: {
   payload?: Record<string, unknown>
   payload_text?: string
@@ -57,15 +100,7 @@ function parsePayload(params: {
     base.payload_text = params.payload_text
   }
   if (typeof params.payload_json === "string" && params.payload_json.length > 0) {
-    try {
-      const parsed = JSON.parse(params.payload_json)
-      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        throw new Error("payload_json must decode to a JSON object")
-      }
-      base.payload_json = parsed
-    } catch (cause) {
-      throw new Error(`record_evidence payload_json parse failed: ${String(cause)}`)
-    }
+    base.payload_json = parseJson(params.payload_json)
   }
   return base
 }
@@ -104,6 +139,7 @@ export const RecordEvidenceTool = Tool.define("record_evidence", {
       source_tool: z.string().optional().describe("Tool that produced this evidence"),
       confidence: z.number().min(0).max(1).optional().describe("Confidence score 0..1"),
       status: z.string().optional().describe("Node status, default active"),
+      assertions: z.array(VerificationAssertionInput).optional().describe("Optional inline assertions to persist as verification nodes against this evidence"),
       artifact_mode: z
         .enum(["auto", "inline", "external"])
         .optional()
@@ -208,6 +244,28 @@ export const RecordEvidenceTool = Tool.define("record_evidence", {
       )
     }
 
+    const verificationIDs: string[] = []
+    if ((params.assertions ?? []).length > 0) {
+      const impl = await VerifyAssertionTool.init()
+      for (const item of params.assertions ?? []) {
+        const out = await impl.execute(
+          {
+            predicate: item.predicate,
+            mode: item.mode,
+            require_all: item.require_all,
+            control: item.control,
+            typed: item.typed,
+            hypothesis_id: params.hypothesis_id,
+            evidence_refs: [row.id],
+            persist: true,
+          } as never,
+          ctx,
+        )
+        const node = String((out.metadata as any).verificationNodeID ?? "")
+        if (node) verificationIDs.push(node)
+      }
+    }
+
     return {
       title: `Evidence node: ${row.type} (${row.id})`,
       metadata: {
@@ -218,6 +276,7 @@ export const RecordEvidenceTool = Tool.define("record_evidence", {
         payloadBytes,
         artifactID: artifact?.id ?? "",
         artifactStored: external,
+        assertionVerificationIDs: verificationIDs,
       } as any,
       envelope: makeToolResultEnvelope({
         status: "ok",
@@ -245,6 +304,7 @@ export const RecordEvidenceTool = Tool.define("record_evidence", {
         metrics: {
           payload_bytes: payloadBytes,
           artifact_stored: artifact ? 1 : 0,
+          assertions_persisted: verificationIDs.length,
         },
       }),
       output: [
@@ -254,6 +314,7 @@ export const RecordEvidenceTool = Tool.define("record_evidence", {
         `Fingerprint: ${row.fingerprint}`,
         `Payload bytes: ${payloadBytes}`,
         `Artifact: ${artifact ? `${artifact.id} (${artifact.relative_path})` : "inline"}`,
+        `Assertions: ${verificationIDs.length}`,
       ].join("\n"),
     }
   },

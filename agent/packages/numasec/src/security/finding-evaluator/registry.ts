@@ -7,11 +7,13 @@ import { MassAssignmentEvaluator } from "./mass-assignment"
 import { JwtEvaluator } from "./jwt"
 import { CorsEvaluator } from "./cors"
 import { MetricsEvaluator } from "./metrics"
+import { WorkflowEvaluator } from "./workflow"
 
 export const FindingEvaluators: FindingEvaluator[] = [
   AuthEvaluator,
   SqlInjectionEvaluator,
   IdorEvaluator,
+  WorkflowEvaluator,
   MassAssignmentEvaluator,
   JwtEvaluator,
   CorsEvaluator,

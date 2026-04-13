@@ -7,8 +7,13 @@
 
 import z from "zod"
 import { Tool } from "../../tool/tool"
-import { analyzeJwt, testJwtAuth } from "../scanner/jwt-analyzer"
-import { httpRequest } from "../http-client"
+import { analyzeJwt, decodeJwt, testJwtAuth } from "../scanner/jwt-analyzer"
+import {
+  actorSessionRequest,
+  httpAuthMaterial,
+  mergeActorSession,
+} from "../runtime/actor-session-store"
+import { executeHttpWithRecovery } from "../runtime/http-execution"
 import { makeToolResultEnvelope } from "./result-envelope"
 
 function slug(value: string) {
@@ -18,6 +23,38 @@ function slug(value: string) {
 function family(type: string) {
   if (type.includes("credential")) return "auth"
   return "jwt"
+}
+
+function text(input: unknown) {
+  if (typeof input === "string") return input
+  if (typeof input === "number") return String(input)
+  return ""
+}
+
+function actorFromValue(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return
+  const row = input as Record<string, unknown>
+  const data = typeof row.data === "object" && row.data && !Array.isArray(row.data) ? row.data as Record<string, unknown> : row
+  const id = text(data.id)
+  const email = text(data.email)
+  const role = text(data.role)
+  if (!id && !email && !role) return
+  return {
+    id,
+    email,
+    role,
+  }
+}
+
+function tokenFromHeaders(input?: Record<string, string>) {
+  if (!input) return ""
+  for (const item of Object.keys(input)) {
+    if (item.toLowerCase() !== "authorization") continue
+    const value = input[item] ?? ""
+    if (!value.toLowerCase().startsWith("bearer ")) return ""
+    return value.slice(7).trim()
+  }
+  return ""
 }
 
 const DESCRIPTION = `Test authentication and authorization mechanisms.
@@ -52,6 +89,8 @@ export const AuthTestTool = Tool.define("auth_test", {
     username_field: z.string().optional().describe("Username field name (default 'username' or 'email')"),
     password_field: z.string().optional().describe("Password field name (default 'password')"),
     cookies: z.string().optional().describe("Session cookies"),
+    actor_session_id: z.string().optional().describe("Optional shared actor session ID for automatic auth hydration"),
+    actor_label: z.string().optional().describe("Optional shared actor label used to derive actor_session_id when omitted"),
   }),
   async execute(params, ctx) {
     await ctx.ask({
@@ -66,11 +105,36 @@ export const AuthTestTool = Tool.define("auth_test", {
     const artifacts: Record<string, any>[] = []
     const observations: Record<string, any>[] = []
     const verifications: Record<string, any>[] = []
+    const seeded = await mergeActorSession({
+      sessionID: ctx.sessionID,
+      actorSessionID: params.actor_session_id,
+      actorLabel: params.actor_label,
+      material: httpAuthMaterial({
+        actorLabel: params.actor_label,
+        url: params.url,
+        requestHeaders: params.jwt
+          ? {
+              authorization: `Bearer ${params.jwt}`,
+            }
+          : undefined,
+        requestCookies: params.cookies,
+      }),
+    })
+    const auth = actorSessionRequest(
+      seeded,
+      params.jwt
+        ? {
+            authorization: `Bearer ${params.jwt}`,
+          }
+        : undefined,
+      params.cookies,
+    )
+    const jwt = params.jwt || tokenFromHeaders(auth.headers)
 
     // JWT analysis
-    if (params.jwt) {
+    if (jwt) {
       ctx.metadata({ title: "Analyzing JWT token..." })
-      const analysis = analyzeJwt(params.jwt)
+      const analysis = analyzeJwt(jwt)
 
       if (analysis.decoded) {
         parts.push("── JWT Analysis ──")
@@ -80,7 +144,7 @@ export const AuthTestTool = Tool.define("auth_test", {
         artifacts.push({
           key: "jwt-token",
           subtype: "jwt_analysis",
-          jwt: params.jwt,
+          jwt,
           header: analysis.decoded.header,
           payload: analysis.decoded.payload,
           expired: analysis.decoded.expired,
@@ -92,6 +156,34 @@ export const AuthTestTool = Tool.define("auth_test", {
           kind: "token_present",
           url: params.url,
         })
+        const actor = actorFromValue(analysis.decoded.payload)
+        if (actor) {
+          observations.push({
+            key: `actor-jwt-${slug(actor.email || actor.id || "jwt")}`,
+            family: "actor_inventory",
+            kind: "authenticated_actor",
+            actor_label: "jwt",
+            actor_id: actor.id,
+            actor_email: actor.email,
+            actor_role: actor.role,
+            privileged: /(admin|root|super|staff|support|manager|operator|internal)/i.test(actor.role),
+            source: "jwt",
+            actor_session_id: seeded.actorSessionID,
+            url: params.url,
+          })
+          await mergeActorSession({
+            sessionID: ctx.sessionID,
+            actorSessionID: seeded.actorSessionID,
+            actorLabel: params.actor_label || "jwt",
+            material: {
+              actorLabel: params.actor_label || "jwt",
+              actorID: actor.id,
+              actorEmail: actor.email,
+              actorRole: actor.role,
+              lastURL: params.url,
+            },
+          })
+        }
       }
 
       if (analysis.weaknesses.length > 0) {
@@ -125,7 +217,7 @@ export const AuthTestTool = Tool.define("auth_test", {
 
       // Test JWT auth endpoint
       ctx.metadata({ title: "Testing JWT auth bypass..." })
-      const authResult = await testJwtAuth(params.url, params.jwt)
+      const authResult = await testJwtAuth(params.url, jwt)
       for (const w of authResult.weaknesses) {
         parts.push(`  [${w.severity.toUpperCase()}] ${w.description}`)
         parts.push(`  Evidence: ${w.evidence}`)
@@ -153,12 +245,20 @@ export const AuthTestTool = Tool.define("auth_test", {
 
       for (const cred of DEFAULT_CREDS) {
         const body = JSON.stringify({ [userField]: cred.username, [passField]: cred.password })
-        const resp = await httpRequest(params.url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body,
-          cookies: params.cookies,
+        const attempt = await executeHttpWithRecovery({
+          sessionID: ctx.sessionID,
+          toolName: "auth_test",
+          action: "default_credentials",
+          actorSessionID: seeded.actorSessionID,
+          url: params.url,
+          request: {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+            cookies: auth.cookies || undefined,
+          },
         })
+        const resp = attempt.response
 
         // Check if login succeeded
         const lower = resp.body.toLowerCase()
@@ -204,6 +304,42 @@ export const AuthTestTool = Tool.define("auth_test", {
             url: params.url,
             evidence_keys: [`default-creds-${slug(cred.username)}-${slug(cred.password)}`],
           })
+          const merged = await mergeActorSession({
+            sessionID: ctx.sessionID,
+            actorSessionID: seeded.actorSessionID,
+            actorLabel: params.actor_label || cred.username,
+            material: httpAuthMaterial({
+              actorLabel: params.actor_label || cred.username,
+              url: resp.url,
+              requestHeaders: {
+                "content-type": "application/json",
+              },
+              requestCookies: auth.cookies,
+              responseHeaders: resp.headers,
+              responseBody: resp.body,
+              setCookies: resp.setCookies,
+            }),
+          })
+          try {
+            const parsed = JSON.parse(resp.body) as Record<string, unknown>
+            const token = text((parsed.authentication as Record<string, unknown> | undefined)?.token)
+            const actor = actorFromValue(token ? decodeJwt(token)?.payload : parsed)
+            if (actor) {
+              observations.push({
+                key: `actor-default-${slug(actor.email || actor.id || cred.username)}`,
+                family: "actor_inventory",
+                kind: "authenticated_actor",
+                actor_label: cred.username,
+                actor_id: actor.id,
+                actor_email: actor.email,
+                actor_role: actor.role,
+                privileged: /(admin|root|super|staff|support|manager|operator|internal)/i.test(actor.role),
+                source: "default_credentials",
+                actor_session_id: merged.actorSessionID,
+                url: params.url,
+              })
+            }
+          } catch {}
         }
       }
     }

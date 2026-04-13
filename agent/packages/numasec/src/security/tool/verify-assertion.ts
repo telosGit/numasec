@@ -16,10 +16,10 @@ function nodeID(value: string): EvidenceNodeID {
 const DESCRIPTION = `Verify a predicate against one or more evidence nodes.
 Returns deterministic verification outcome, confidence score, and optional verification node.`
 
-const MODE = z.enum(["substring", "exact", "regex"])
-const CONTROL = z.enum(["positive", "negative", "neutral"])
-const JSON_OP = z.enum(["exists", "equals", "contains"])
-const TYPED = z.discriminatedUnion("kind", [
+export const AssertionMode = z.enum(["substring", "exact", "regex"])
+export const AssertionControl = z.enum(["positive", "negative", "neutral"])
+const JsonOp = z.enum(["exists", "equals", "contains"])
+export const TypedAssertion = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("http_status"),
     equals: z.number().int(),
@@ -33,7 +33,7 @@ const TYPED = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("json_path"),
     path: z.string(),
-    op: JSON_OP.default("exists"),
+    op: JsonOp.default("exists"),
     value: z.any().optional(),
   }),
   z.object({
@@ -44,6 +44,15 @@ const TYPED = z.discriminatedUnion("kind", [
     token_path: z.string().optional(),
   }),
 ])
+export const VerificationAssertionInput = z
+  .object({
+    predicate: z.string().optional(),
+    mode: AssertionMode.optional(),
+    require_all: z.boolean().optional(),
+    control: AssertionControl.optional(),
+    typed: TypedAssertion.optional(),
+  })
+  .refine((item) => item.typed || (item.predicate ?? "").trim().length > 0, "assertion requires predicate or typed input")
 
 function collectText(input: unknown, out: string[]) {
   if (typeof input === "string") {
@@ -61,7 +70,7 @@ function collectText(input: unknown, out: string[]) {
   }
 }
 
-function matches(text: string, predicate: string, mode: z.infer<typeof MODE>) {
+function matches(text: string, predicate: string, mode: z.infer<typeof AssertionMode>) {
   if (mode === "exact") return text === predicate
   if (mode === "substring") return text.toLowerCase().includes(predicate.toLowerCase())
   const re = new RegExp(predicate, "i")
@@ -159,7 +168,7 @@ function tokenFromPayload(input: unknown, tokenPath: string): string {
   return found ?? ""
 }
 
-function matchTyped(payload: unknown, typed: z.infer<typeof TYPED>): boolean {
+function matchTyped(payload: unknown, typed: z.infer<typeof TypedAssertion>): boolean {
   if (typed.kind === "http_status") {
     const status = statusFromPayload(payload)
     return status === typed.equals
@@ -195,11 +204,11 @@ export const VerifyAssertionTool = Tool.define("verify_assertion", {
     predicate: z.string().optional().describe("Assertion or predicate to verify"),
     evidence_refs: z.array(z.string()).min(1).describe("Evidence node ids"),
     hypothesis_id: z.string().optional().describe("Optional hypothesis node id to link from"),
-    mode: MODE.optional().describe("Match mode"),
+    mode: AssertionMode.optional().describe("Match mode"),
     require_all: z.boolean().optional().describe("Require every evidence ref to match"),
-    control: CONTROL.optional().describe("Assertion control type: positive expects matches, negative expects no matches"),
+    control: AssertionControl.optional().describe("Assertion control type: positive expects matches, negative expects no matches"),
     persist: z.boolean().optional().describe("Persist verification node"),
-    typed: TYPED.optional().describe("Structured assertion mode for HTTP status, headers, JSON paths, and JWT claims"),
+    typed: TypedAssertion.optional().describe("Structured assertion mode for HTTP status, headers, JSON paths, and JWT claims"),
   }),
   async execute(params, ctx) {
     const predicate = (params.predicate ?? "").trim()
