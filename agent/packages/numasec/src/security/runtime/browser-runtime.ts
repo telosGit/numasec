@@ -162,7 +162,7 @@ function launchCode(cause: unknown) {
 function launchMessage(cause: unknown) {
   const code = launchCode(cause)
   if (code === "playwright_browser_missing") {
-    return "Playwright browser binaries are not installed. Install with: bunx playwright install chromium"
+    return "Playwright browser binaries are not installed. Install with: npx playwright install chromium"
   }
   return `Failed to launch Playwright Chromium: ${message(cause)}`
 }
@@ -409,7 +409,7 @@ const layer = Layer.effect(
         catch: (cause) =>
           new BrowserRuntimeError({
             code: "playwright_missing",
-            message: "Playwright JS package is not installed. Install with: bun add -d playwright && bunx playwright install chromium",
+            message: "Playwright JS package is not available in this numasec install. Reinstall numasec or run bun install in the repo, then install Chromium with: npx playwright install chromium",
             cause,
           }),
       })

@@ -170,6 +170,12 @@ npm install -g numasec
 numasec
 ```
 
+For browser automation, install Chromium once:
+
+```bash
+npx playwright install chromium
+```
+
 ### From source
 
 ```bash
@@ -190,12 +196,11 @@ bun run build
 
 ### Optional: external tools
 
-numasec works standalone, but the browser runtime and external probes get much better with this setup:
+numasec works standalone, but external probes get much better with this setup:
 
 ```bash
 # Recommended
 apt install nmap
-bunx playwright install chromium
 
 # Optional
 apt install sqlmap
